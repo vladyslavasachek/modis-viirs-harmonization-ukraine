@@ -340,6 +340,114 @@ def page_anomalies():
     c2.download_button("⬇ Season metrics CSV", sm.to_csv(index=False).encode(), "season_metrics.csv")
 
 
+def page_burn_types():
+    import plotly.express as px
+    aoi, domain, d0, d1 = AOI, DOMAIN, D0, D1
+    st.title("Burn types")
+    st.caption(f"{aoi['name']} · {lib.DOMAIN_LABELS[domain]} · {d0:%Y-%m-%d} – {d1:%Y-%m-%d} · unit: **{UNIT}**")
+    st.warning("Burn-type labels are **model output, not ground truth**. From 2012, VIIRS S-NPP detections are "
+               "grouped into fire events (space-time clustering, ≤1 km and ≤2 days) and typed by transparent rules "
+               "(dominant WorldCover class, duration, night fraction, FRP). Before 2012 (MODIS) and for NOAA-20 "
+               "detections, the type comes from land cover only (**lower confidence**). See validation below.")
+    if len(aoi["cells"]) == 0:
+        st.warning("Empty AOI.")
+        return
+    det = lib.aoi_detections(aoi, domain)
+    det = det[(det["datetime_utc"] >= d0) & (det["datetime_utc"] < d1 + pd.Timedelta(days=1))]
+    det = det[det["weight"] > 0]
+    det = det.assign(month=det["datetime_utc"].dt.to_period("M").dt.to_timestamp(), year=det["datetime_utc"].dt.year,
+                     season=det["datetime_utc"].dt.month.map({12: "winter", 1: "winter", 2: "winter", 3: "spring",
+                                                              4: "spring", 5: "spring", 6: "summer", 7: "summer",
+                                                              8: "summer", 9: "autumn", 10: "autumn", 11: "autumn"}))
+    cmap = lib.TYPE_COLORS
+    # calendar by type
+    det["burn_type"] = det["burn_type"].astype(str)
+    det["weight"] = det["weight"].astype(float)
+    m = det.groupby(["month", "burn_type"], observed=True)["weight"].sum().reset_index()
+    f = px.bar(m, x="month", y="weight", color="burn_type", color_discrete_map=cmap,
+               category_orders={"burn_type": lib.TYPE_ORDER}, labels={"weight": f"{UNIT} / month", "burn_type": "type"})
+    f.update_layout(height=360, title="Monthly harmonized activity by burn type", bargap=0,
+                    margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=-0.2))
+    st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+    c1, c2 = st.columns(2)
+    y = det.groupby(["year", "burn_type"], observed=True)["weight"].sum().reset_index()
+    y["share"] = y["weight"] / y.groupby("year")["weight"].transform("sum")
+    f1 = px.bar(y, x="year", y="share", color="burn_type", color_discrete_map=cmap,
+                category_orders={"burn_type": lib.TYPE_ORDER}, labels={"share": "share of activity"})
+    f1.update_layout(height=340, title="Type shares by year", showlegend=False, margin=dict(l=10, r=10, t=40, b=10),
+                     yaxis_tickformat=".0%")
+    c1.plotly_chart(f1, use_container_width=True, config=PNG_CONFIG)
+    sz = det.groupby(["season", "burn_type"], observed=True)["weight"].sum().reset_index()
+    sz["share"] = sz["weight"] / sz.groupby("season")["weight"].transform("sum")
+    f2 = px.bar(sz, x="season", y="share", color="burn_type", color_discrete_map=cmap,
+                category_orders={"burn_type": lib.TYPE_ORDER, "season": ["winter", "spring", "summer", "autumn"]},
+                labels={"share": "share of activity"})
+    f2.update_layout(height=340, title="Type shares by season", showlegend=False, margin=dict(l=10, r=10, t=40, b=10),
+                     yaxis_tickformat=".0%")
+    c2.plotly_chart(f2, use_container_width=True, config=PNG_CONFIG)
+    st.caption("Shares are of harmonized activity (S-NPP-equivalent weights). Years before 2012 use land-cover-only "
+               "typing of MODIS detections.")
+
+    # map of events
+    ev = lib.aoi_events(aoi, domain, d0, d1)
+    st.subheader("Fire events (VIIRS S-NPP, 2012+)")
+    if len(ev) == 0:
+        st.info("No multi-detection events in this AOI and date range.")
+        return
+    top = ev.sort_values("n_det", ascending=False).head(3000).copy()
+    top["burn_type"] = top["burn_type"].astype(str)
+    top[["lat", "lon", "duration_days"]] = top[["lat", "lon", "duration_days"]].astype(float)
+    fm = px.scatter_map(top, lat="lat", lon="lon", color="burn_type", size="n_det", size_max=22,
+                        color_discrete_map=cmap, category_orders={"burn_type": lib.TYPE_ORDER},
+                        hover_data={"start": "|%Y-%m-%d", "n_det": True, "duration_days": ":.1f",
+                                    "type_confidence": True, "lat": False, "lon": False},
+                        map_style="open-street-map", zoom=5 if len(aoi["cells"]) > 500 else 7, height=480,
+                        center=dict(lat=float(top["lat"].median()), lon=float(top["lon"].median())))
+    fm.update_layout(margin=dict(l=0, r=0, t=0, b=0), legend=dict(orientation="h", y=-0.05))
+    st.plotly_chart(fm, use_container_width=True, config=PNG_CONFIG)
+    st.caption(f"{len(ev):,} events with ≥ 2 detections in AOI and date range (largest 3,000 shown; marker size = "
+               "number of detections). Single-detection events are not mapped.")
+
+    # how does this fire compare?
+    st.subheader("How does this fire compare?")
+    cand = ev.sort_values("n_det", ascending=False).head(100)
+    labels = [f"{r.start:%Y-%m-%d} · {r.oblast} · {r.burn_type} · {r.n_det} detections · {r.lat:.3f}N {r.lon:.3f}E"
+              for r in cand.itertuples()]
+    pick = st.selectbox("Event (100 largest in the AOI and date range)", range(len(cand)), format_func=lambda i: labels[i])
+    e1 = cand.iloc[pick]
+    tab, nref = lib.event_percentiles(e1)
+    c1, c2 = st.columns([3, 2])
+    c1.dataframe(tab.style.format({"percentile in oblast": "{:.0f}th"}), hide_index=True, use_container_width=True)
+    c2.markdown(f"**Type:** {e1['burn_type']} (confidence: {e1['type_confidence']}; GMM cluster majority: "
+                f"{e1['gmm_label']})  \n**Land cover:** crop {e1['lc_crop']:.0%}, grass {e1['lc_grass']:.0%}, "
+                f"tree {e1['lc_tree']:.0%}, wetland {e1['lc_wetland']:.0%}  \n**Night fraction:** "
+                f"{e1['night_frac']:.0%}  \nCompared with {nref:,} events (≥ 2 detections, 2012–2026) in "
+                f"{e1['oblast']}.")
+    from events_validation import worldview
+    c2.markdown(f"[Open in NASA Worldview]({worldview(float(e1['lat']), float(e1['lon']), e1['start'])})")
+
+    # validation
+    with st.expander("How the labels were validated", expanded=False):
+        kc = pd.read_csv(os.path.join(lib.PROC, "events_known_cases.csv"))
+        st.markdown("**Known episodes**")
+        st.dataframe(kc.style.format({"share_of_detections": "{:.1%}"}), hide_index=True, use_container_width=True)
+        st.markdown("""
+- **Chornobyl Exclusion Zone, April 2020** (forest and grass fires; ~365 km² burned inside the zone according to
+  Newman-Thacker & Turnbull 2021, *Natural Hazards*): 98.5% of detections typed *forest*, the rest grass/other — **consistent**.
+- **Kyiv-region peat fires, late Aug – Oct 2015** (Vyshhorod district; reported by regional media and studied in a
+  Kharkiv University journal paper): only 8% of detections typed *peat*; most were labelled *grass* — drained peatlands
+  appear as grassland in WorldCover and VIIRS saw short, daytime, relatively intense detections. **The peat rule has
+  low recall for drained peatlands**; peat activity is likely underestimated.
+- **Unsupervised cross-check:** a 5-component Gaussian mixture on standardized event features agrees with the rule
+  labels for 85% of events (adjusted Rand index 0.45, NMI 0.51); four clusters align with forest, spring cropland,
+  autumn cropland and grass; the fifth groups large, long, mixed events.
+- **Visual check:** `validation_events_worldview.csv` lists 40 events (8 per type) with NASA Worldview links for
+  manual labelling (pending).""")
+        ct = pd.read_csv(os.path.join(lib.PROC, "events_gmm_vs_rules_crosstab.csv"), index_col=0)
+        st.markdown("GMM cluster × rule label (events):")
+        st.dataframe(ct, use_container_width=True)
+
+
 def page_harmonization():
     st.title("Harmonization: MODIS → VIIRS S-NPP equivalent")
     ann = pd.read_csv(os.path.join(lib.PROC, "ukraine_annual_harmonized.csv"))
@@ -458,6 +566,7 @@ VIIRS counts are never added together.
 AOI, DOMAIN, D0, D1, BASE = sidebar()
 pg = st.navigation([st.Page(page_calendar, title="Calendar", icon="📅", default=True),
                     st.Page(page_anomalies, title="Anomalies & critical periods", icon="⚠️"),
+                    st.Page(page_burn_types, title="Burn types", icon="🔥"),
                     st.Page(page_harmonization, title="Harmonization", icon="🛰️"),
                     st.Page(page_methods, title="Data, methods & limitations", icon="📖")])
 pg.run()

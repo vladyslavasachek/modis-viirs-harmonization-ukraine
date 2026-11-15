@@ -128,3 +128,35 @@
 - Belarus FIRMS arrived:
   - S-NPP: 86,249 archive (2012-01-26 → 2026-07-31) + 940 NRT;
   - NOAA-20: 41,311 archive (2018-04-03 → 2026-07-31) + 970 NRT.
+
+## Stage 5 — Burn-type classification, full version (done)
+- `src/events.py`: space-time clustering of VIIRS **S-NPP** detections (2012 → 2 Nov 2026), then NOAA-20 NRT after S-NPP ends.
+  - Link rule: ≤ 1 km and ≤ 2 days (ST-DBSCAN, min_samples = 1 = connected components of the space-time neighbour graph); clustered per calendar year.
+  - Justification: 1 km links adjacent 375 m pixels incl. diagonals and off-nadir growth; 2 days bridges one missed/clouded overpass. S-NPP only, so event sizes stay comparable over time.
+  - Result: 1.03 M detections → **446,676 events** (193,553 with ≥ 2 detections). Median 1 detection, 99th percentile 14, max 1,612. Runs in 4 s.
+- Features per event: duration, n_det, mean/max/sum FRP, night fraction, extent, land-cover shares, day of year, recurrence (1 km cell burned in the previous 5 years, MODIS + VIIRS history), conflict fraction.
+- **Rule types** (events / detections):
+
+  | Type | Events | Detections |
+  |---|---|---|
+  | Crop residue | 258,596 | 589 k |
+  | Grass | 95,626 | 201 k |
+  | Forest | 66,737 | 148 k |
+  | Other | 25,502 | 84 k |
+  | Peat / wetland | 215 | 13 k |
+
+  - Peat events: median 20 detections, 4.5 days, 74% at night, about 3 MW.
+  - Share of harmonized activity (all years, both domains): crop 65%, grass 16%, forest 12.5%, other 4.4%, peat 1.5%.
+- **GMM cross-check** (k = 5, standardized features): agrees with the rules for **85%** of events; ARI 0.45, NMI 0.51. Four clusters align with forest / spring crop / autumn crop / grass; the fifth = large long mixed events.
+- **Known events** (`events_known_cases.csv`):
+  - CEZ April 2020: **98.5%** of detections typed forest (rest grass/other). Consistent with the reported forest/grass fires; 365 km² burned per Newman-Thacker & Turnbull 2021.
+  - Kyiv-region peat fires, Aug–Oct 2015 (Vyshhorod; Babel, EcoPolitic, Karazin University journal): only **8%** typed peat, 63% grass. Drained peatlands appear as grassland in WorldCover, and the VIIRS signal was short, daytime and intense. **The peat rule has low recall for drained peat.**
+- `validation_events_worldview.csv`: 40 events, 8 per type (n_det ≥ 3, 2012–2025, non-conflict). Worldview links "during" and "after (burn scar)" use a MODIS true-colour base plus S-NPP, NOAA-20 and MODIS fire overlays. S-NPP imagery layers are flagged in Worldview after the end of S-NPP. Columns `my_label`, `my_notes` are empty.
+- Per-detection `burn_type` added to `detections.parquet`: S-NPP from its event (100% matched); MODIS / NOAA-20 / pre-2012 from land cover only (`type_from_event = False`, lower confidence).
+- App page "Burn types":
+  - monthly calendar by type;
+  - shares by year and season;
+  - event map (Okabe-Ito colours);
+  - "How does this fire compare?" (percentiles of size/extent/total FRP/peak FRP/duration among same-oblast events);
+  - validation expander.
+- `data/processed/` = 39 MB.

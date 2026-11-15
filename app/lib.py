@@ -252,3 +252,48 @@ def trend_robustness(det_all: pd.DataFrame) -> pd.DataFrame:
                          "95% CI": f"{t['lo']:+,.0f} to {t['hi']:+,.0f}", "% of median / yr": t["rel"],
                          "Mann–Kendall τ": t["tau"], "p": t["p"]})
     return pd.DataFrame(rows)
+
+
+# ----------------------------------------------------------------------------- burn types / events
+TYPE_ORDER = ["crop residue / field", "grass / abandoned land", "forest", "peat / wetland smouldering",
+              "other / uncertain"]
+TYPE_COLORS = {"crop residue / field": "#E69F00", "grass / abandoned land": "#56B4E9", "forest": "#009E73",
+               "peat / wetland smouldering": "#D55E00", "other / uncertain": "#999999"}   # Okabe-Ito (CVD-safe)
+
+
+@st.cache_data
+def load_events() -> pd.DataFrame:
+    e = pd.read_parquet(os.path.join(APP, "events.parquet"))
+    e["cell01"] = (np.floor(e["lat"].astype(float) * 10).astype(int) * 1000
+                   + np.floor(e["lon"].astype(float) * 10).astype(int))
+    return e
+
+
+def aoi_events(aoi: dict, domain: str, d0, d1) -> pd.DataFrame:
+    e = load_events()
+    e = e[(e["start"] >= d0) & (e["start"] < d1 + pd.Timedelta(days=1))]
+    if aoi["kind"] == "circle":
+        e = e[haversine_km(aoi["lat"], aoi["lon"], e["lat"].values.astype(float), e["lon"].values.astype(float)) <= aoi["r"]]
+    elif aoi["kind"] == "polygon":
+        e = e[shapely.contains_xy(aoi["polygon"], e["lon"].values, e["lat"].values)]
+    else:
+        e = e[e["cell01"].isin(aoi["cells"])]
+    if domain == "excl":
+        e = e[~e["oblast"].isin(OPEN_ENDED) & ~e["conflict_event"]]
+    return e
+
+
+def event_percentiles(ev: pd.Series) -> pd.DataFrame:
+    """Percentile of an event's size/intensity/duration among all events (>=2 detections) in the same oblast."""
+    e = load_events()
+    ref = e[e["oblast"] == ev["oblast"]]
+    rows = []
+    for col, label, unit in (("n_det", "Detections (size)", ""), ("extent_km", "Spatial extent", " km"),
+                             ("frp_sum", "Total FRP (energy proxy)", " MW"), ("frp_max", "Peak FRP", " MW"),
+                             ("duration_days", "Duration", " days")):
+        v = float(ev[col])
+        r = ref[col].values.astype(float)
+        pct = (np.sum(r < v) + 0.5 * np.sum(r == v)) / len(r) * 100
+        rows.append({"metric": label, "this event": f"{v:,.1f}{unit}", "oblast median": f"{np.median(r):,.1f}{unit}",
+                     "percentile in oblast": pct})
+    return pd.DataFrame(rows), len(ref)
