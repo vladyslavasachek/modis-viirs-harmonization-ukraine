@@ -28,7 +28,8 @@ SNPP_START = pd.Timestamp("2012-01-25")
 def load_det() -> pd.DataFrame:
     d = pd.read_parquet(os.path.join(INTERIM, "detections_all.parquet"),
                         columns=["satellite", "processing", "date", "daynight", "lat", "lon", "frp",
-                                 "in_ukraine", "conflict_zone", "oblast", "cell01"])
+                                 "in_ukraine", "conflict_zone", "oblast", "cell01", "confidence", "datetime_utc",
+                                 "landcover"])
     d = d[d["in_ukraine"]].copy()
     d["year"] = d["date"].dt.year.astype("int16")
     d["woy"] = np.minimum((d["date"].dt.dayofyear - 1) // 7, 51).astype("int8")

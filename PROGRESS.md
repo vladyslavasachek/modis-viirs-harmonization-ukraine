@@ -55,3 +55,23 @@
 - Open issues:
   - B1 is zero wherever MODIS saw nothing, so the totals are calibrated but the spatial pattern of VIIRS-only small fires before 2012 is missing (cell × month WAPE 35%).
   - Aqua FRP drift after 2023 does not affect B1, which uses counts only.
+
+## Stage 4 — Minimal app (done)
+- `src/build_app_data.py` builds `data/processed/app/`:
+  - `weekly_cells.parquet` (0.1° × week, 2.6 MB): B1 is a cell-independent ratio, so it is applied at 0.1°. It reproduces the Stage 2 annual totals to 1e-7.
+  - `cells.parquet` (AOI membership).
+  - `boundaries.geojson`.
+  - `detections.parquet` (2.40 M detections, 29 MB) with a per-detection **harmonization weight**. The sum of weights over any area or time window equals the harmonized value; this drives the daily month-to-date KPI and the exact circle/polygon AOIs.
+- CEZ polygon: OSM relation 3311547 (2,627 km², official ≈ 2,600 km²).
+- `app/app.py` + `app/lib.py`. Pages: Calendar; Anomalies (placeholder until Stage 3); Harmonization; Data, methods & limitations.
+- AOI: presets (Ukraine, Kyiv airshed, CEZ, 27 oblasts), point + radius, drawn polygon.
+- Domain toggle, default "Ukraine without conflict-affected oblasts, all years".
+- Calendar page:
+  - KPI "this month to date vs 2001–2025 median" with intervals and percentile; for Ukraine, Nov 1–14 2026 = 44 vs median 264, the 20th percentile;
+  - weekly series with 80/95% bands;
+  - week × year and month × year heatmaps (viridis, intervals on hover);
+  - annual bars with 95% error bars and Sen's slope + Mann–Kendall (Ukraine excl. domain 2001–2025: −1,918/yr, 95% CI −3,336 to −622, p = 0.009);
+  - top 10 months and years;
+  - calendar CSV and hot-spot CSV downloads; PNG via the plot camera icon.
+- Tested in the browser: preset, point + radius and drawn rectangle. No server errors.
+- Total `data/processed/` is 44 MB.
