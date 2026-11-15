@@ -189,6 +189,6 @@
   - share of harmonized activity typed peat: 1.5% → 2.5%;
   - Belarus peat share 4% → 16% (Polesia).
 - **Before/after, Kyiv-region 2015 check: unchanged, 7.8% peat.** PEATMAP has only 8 polygons in 29–32E / 50–51.6N, and the nearest is ~70 km from the Vyshhorod fires (83 km from Kyiv). The limitation stays for the Kyiv region.
-- CEZ April 2020 unchanged (98.5% forest).
+- CEZ April 2020 unchanged (98.5% forest). GMM agreement now 84.4% (ARI 0.44, NMI 0.49).
 - Kyiv high-PM/high-load days: peat share of load 0.2% → 3.2%.
 - `validation_events_worldview.csv` is protected from overwriting; event IDs are unchanged.

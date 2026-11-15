@@ -442,7 +442,7 @@ def page_burn_types():
   (Polesia, Belarus) but did **not** change this case: PEATMAP has no polygon within ~70 km of these fires.
   **Peat activity near Kyiv is likely underestimated.**
 - **Unsupervised cross-check:** a 5-component Gaussian mixture on standardized event features agrees with the rule
-  labels for 85% of events (adjusted Rand index 0.45, NMI 0.51); four clusters align with forest, spring cropland,
+  labels for 84% of events (adjusted Rand index 0.44, NMI 0.49); four clusters align with forest, spring cropland,
   autumn cropland and grass; the fifth groups large, long, mixed events.
 - **Visual check:** `validation_events_worldview.csv` lists 40 events (8 per type) with NASA Worldview links for
   manual labelling (pending).""")
