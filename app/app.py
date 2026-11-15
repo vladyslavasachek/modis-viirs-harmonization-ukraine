@@ -461,8 +461,25 @@ def page_burn_types():
 - **Unsupervised cross-check:** a 5-component Gaussian mixture on standardized event features agrees with the rule
   labels for 84% of events (adjusted Rand index 0.44, NMI 0.49); four clusters align with forest, spring cropland,
   autumn cropland and grass; the fifth groups large, long, mixed events.
-- **Visual check:** `validation_events_worldview.csv` lists 40 events (8 per type) with NASA Worldview links for
-  manual labelling (pending).""")
+- **Visual check in NASA Worldview** (40 events, 8 per predicted type, stratified random, n ≥ 3 detections; labelled
+  by one team member from true-colour imagery and burn scars): see table below.""")
+        acc = pd.read_csv(os.path.join(lib.PROC, "validation_manual_accuracy.csv")).iloc[0]
+        bt_ = pd.read_csv(os.path.join(lib.PROC, "validation_manual_by_type.csv"), index_col=0)
+        st.markdown(f"**Manual check:** {int(acc['n_confident_total'])} of 40 events could be labelled confidently "
+                    f"({40 - int(acc['n_confident_total'])} *unclear*). On the {int(acc['n_scored'])} confident labels "
+                    f"with a definite predicted type, **{int(acc['correct'])} agree** — accuracy "
+                    f"**{acc['accuracy']:.0%} (95% Wilson interval {acc['wilson95_lo']:.0%}–{acc['wilson95_hi']:.0%})**. "
+                    "All disagreements are in the *peat* class (2 looked like fields, 2 like forest — possibly "
+                    "forested peat or field/forest edges). Grass was mostly *unclear* from imagery (7 of 8), so the "
+                    "grass class is essentially unvalidated. The sample is small, stratified by predicted type (not "
+                    "representative of type prevalence) and labelled by a single person: treat this as an indicative "
+                    "check, not an accuracy estimate for the whole map.")
+        st.dataframe(bt_.rename(columns={"n": "sampled", "unclear": "unclear", "unclear_rate": "unclear rate",
+                                         "confident": "confident labels", "correct": "agree"})
+                     .style.format({"unclear rate": "{:.0%}"}), width="stretch")
+        st.markdown("Confusion matrix (confident labels; rows = predicted, columns = manual):")
+        st.dataframe(pd.read_csv(os.path.join(lib.PROC, "validation_manual_confusion_current.csv"), index_col=0),
+                     width="stretch")
         ct = pd.read_csv(os.path.join(lib.PROC, "events_gmm_vs_rules_crosstab.csv"), index_col=0)
         st.markdown("GMM cluster × rule label (events):")
         st.dataframe(ct, width="stretch")

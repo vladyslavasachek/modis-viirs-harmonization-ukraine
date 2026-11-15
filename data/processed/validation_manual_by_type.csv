@@ -1,0 +1,6 @@
+rule_label,n,unclear,unclear_rate,confident,correct
+crop residue / field,8,1,0.125,7,7
+forest,8,4,0.5,4,4
+grass / abandoned land,8,7,0.875,1,1
+other / uncertain,8,4,0.5,4,0
+peat / wetland smouldering,8,2,0.25,6,2
