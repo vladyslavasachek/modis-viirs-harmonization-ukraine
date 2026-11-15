@@ -206,23 +206,49 @@ def sen_mk(years: np.ndarray, values: np.ndarray) -> dict:
                 intercept=s.intercept, rel=s.slope / np.median(values) * 100 if np.median(values) > 0 else np.nan)
 
 
-def trend_robustness(det: pd.DataFrame, yr_harm: pd.DataFrame) -> pd.DataFrame:
-    """Sen's slope + Mann-Kendall on harmonized vs raw single-sensor series (fixed periods, complete years).
-    Raw series are counts of one sensor only, so their *sign/relative* trend is comparable, not their level."""
-    d = det.assign(year=det["datetime_utc"].dt.year)
-    aqua = d[d["sensor"] == "MODIS Aqua"].groupby("year").size()
-    snpp = d[d["sensor"] == "VIIRS S-NPP"].groupby("year").size()
-    h = yr_harm.set_index("year")["point"]
+OPEN_ENDED = ["Kharkiv Oblast", "Donetsk Oblast", "Luhansk Oblast", "Zaporizhia Oblast", "Kherson Oblast",
+              "Mykolaiv Oblast", "Autonomous Republic of Crimea", "Sevastopol"]
+
+
+def annual_from_weights(det: pd.DataFrame) -> pd.DataFrame:
+    """Annual harmonized value (sum of weights) and raw single-sensor counts from a detection subset."""
+    y = det["datetime_utc"].dt.year
+    out = pd.DataFrame({"harmonized": det["weight"].groupby(y).sum(),
+                        "aqua": (det["sensor"] == "MODIS Aqua").groupby(y).sum(),
+                        "snpp": (det["sensor"] == "VIIRS S-NPP").groupby(y).sum()})
+    out.index.name = "year"
+    return out
+
+
+def constant_area(det_all: pd.DataFrame) -> pd.DataFrame:
+    """Constant-area trend domain: conflict-affected oblasts with open-ended windows removed in ALL years;
+    the north Feb-Apr 2022 window is kept (excluding it would shrink the area in 2022 only)."""
+    return det_all[~det_all["oblast"].isin(OPEN_ENDED)]
+
+
+def trend_robustness(det_all: pd.DataFrame) -> pd.DataFrame:
+    """Sen's slope + Mann-Kendall on harmonized vs raw single-sensor series, complete years, fixed periods.
+    det_all: AOI detections WITHOUT domain filtering. Raw series are in their own sensor's units: compare sign
+    and % of median per year, not levels."""
     rows = []
-    for label, ser, y0, y1 in (("Harmonized (S-NPP-equivalent)", h, 2001, 2025),
-                               ("Raw Aqua-MODIS only", aqua, 2003, 2025),
-                               ("Raw VIIRS S-NPP only", snpp, 2012, 2025),
-                               ("Harmonized, common period", h, 2012, 2025),
-                               ("Raw Aqua-MODIS only, common period", aqua, 2012, 2025)):
-        yrs = np.arange(y0, y1 + 1)
-        v = ser.reindex(yrs, fill_value=0).values.astype(float)
-        t = sen_mk(yrs, v)
-        rows.append({"series": label, "period": f"{y0}–{y1}", "Sen's slope / yr": t["slope"],
-                     "95% CI": f"{t['lo']:+,.0f} to {t['hi']:+,.0f}", "% of median / yr": t["rel"],
-                     "Mann–Kendall τ": t["tau"], "p": t["p"]})
+    groups = (("Constant area: without conflict-affected oblasts (all years)", annual_from_weights(constant_area(det_all)),
+               [("Harmonized", "harmonized", 2001, 2025), ("Raw Aqua-MODIS only", "aqua", 2003, 2025),
+                ("Raw VIIRS S-NPP only", "snpp", 2012, 2025)]),
+              ("Constant area, pre-invasion only", annual_from_weights(constant_area(det_all)),
+               [("Harmonized", "harmonized", 2001, 2021)]),
+              ("All of Ukraine / AOI, pre-invasion", annual_from_weights(det_all),
+               [("Harmonized", "harmonized", 2001, 2021), ("Raw Aqua-MODIS only", "aqua", 2003, 2021),
+                ("Raw VIIRS S-NPP only", "snpp", 2012, 2021)]),
+              ("All of Ukraine / AOI, incl. conflict-affected oblasts", annual_from_weights(det_all),
+               [("Harmonized", "harmonized", 2001, 2025)]))
+    for dom, ann, specs in groups:
+        for label, col, y0, y1 in specs:
+            yrs = np.arange(y0, y1 + 1)
+            v = ann[col].reindex(yrs, fill_value=0).values.astype(float)
+            if (v > 0).sum() < 6:
+                continue
+            t = sen_mk(yrs, v)
+            rows.append({"domain": dom, "series": label, "period": f"{y0}–{y1}", "Sen's slope / yr": t["slope"],
+                         "95% CI": f"{t['lo']:+,.0f} to {t['hi']:+,.0f}", "% of median / yr": t["rel"],
+                         "Mann–Kendall τ": t["tau"], "p": t["p"]})
     return pd.DataFrame(rows)

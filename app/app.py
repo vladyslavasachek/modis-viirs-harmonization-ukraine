@@ -46,9 +46,17 @@ def sidebar():
     dr = st.sidebar.date_input("Date range", (pd.Timestamp("2001-01-01").date(), dmax), min_value=dmin, max_value=dmax)
     if not isinstance(dr, (tuple, list)) or len(dr) != 2:
         dr = (dmin, dmax)
+    small = len(aoi["cells"]) < 20
+    base_opts = ["2001–2025 (incl. MODIS-based estimates before 2012)", "2012–2025 (observed VIIRS only)"]
+    bsel = st.sidebar.radio("Baseline years (anomalies, KPI)", base_opts, index=1 if small else 0,
+                            key=f"baseline_{'small' if small else 'large'}",
+                            help="For small AOIs (<20 cells of 0.1°) the default is VIIRS-only: before 2012 the "
+                                 "MODIS-based estimate is zero wherever MODIS saw nothing, which distorts the "
+                                 "distribution of weekly values in small areas.")
+    base_years = list(range(2012, 2026)) if bsel.startswith("2012") else list(range(2001, 2026))
     st.sidebar.caption(f"AOI: **{aoi['name']}** · {len(aoi['cells'])} cells of 0.1°")
     st.sidebar.caption(f"Domain: {domain_label}")
-    return aoi, domain, pd.Timestamp(dr[0]), pd.Timestamp(dr[1])
+    return aoi, domain, pd.Timestamp(dr[0]), pd.Timestamp(dr[1]), base_years
 
 
 def get_series(aoi, domain, d0, d1):
@@ -81,16 +89,17 @@ def page_calendar():
     calib_ta, calib_t, n20q, _ = lib.load_calib()
 
     # ---- KPI: current month-to-date vs historical median
-    k = lib.month_to_date_kpi(det, n20q)
+    k = lib.month_to_date_kpi(det, n20q, base_years=BASE)
+    by = f"{BASE[0]}–{BASE[-1]}"
     c1, c2, c3, c4 = st.columns(4)
     c1.metric(f"This month to date ({k['start']:%d %b}–{k['end']:%d %b %Y})", f"{k['value']:,.0f}",
               help=f"95% interval {k['value_lo']:,.0f}–{k['value_hi']:,.0f} (NOAA-20→S-NPP calibration). NRT data.")
-    c2.metric("Historical median, same window (2001–2025)", f"{k['median']:,.0f}",
+    c2.metric(f"Historical median, same window ({by})", f"{k['median']:,.0f}",
               help=f"95% bootstrap interval of the median: {k['median_lo']:,.0f}–{k['median_hi']:,.0f}. "
                    "Years before 2012 are MODIS-based estimates.")
-    c3.metric("Percentile vs 2001–2025", f"{k['percentile']:.0f}th")
+    c3.metric(f"Percentile vs {by}", f"{k['percentile']:.0f}th")
     c4.metric("Ratio to median", f"{k['value'] / k['median']:.2f}×" if k["median"] > 0 else "n/a")
-    st.caption(f"Same calendar window ({k['start']:%d %b}–{k['end']:%d %b}) in every baseline year 2001–2025. "
+    st.caption(f"Same calendar window ({k['start']:%d %b}–{k['end']:%d %b}) in every baseline year {by}. "
                f"Current value 95% interval {k['value_lo']:,.0f}–{k['value_hi']:,.0f}; median 95% interval "
                f"{k['median_lo']:,.0f}–{k['median_hi']:,.0f}. **The current month is near-real-time (NRT) data** "
                "(NOAA-20 calibrated to S-NPP after S-NPP ended on 2 Nov 2026); NRT can differ slightly from the "
@@ -143,18 +152,21 @@ def page_calendar():
                         error_y=dict(type="data", symmetric=False, array=yr["hi95"] - yr["point"],
                                      arrayminus=yr["point"] - yr["lo95"], color="#555"),
                         hovertext=lib.fmt_interval(yr), hovertemplate="%{x}: %{hovertext}<extra></extra>"))
+    det_all = lib.aoi_detections(aoi, "all")
+    # trend on a constant area: "excl" -> conflict-affected oblasts removed in all years (north 2022 window kept)
+    tr_ann = lib.annual_from_weights(lib.constant_area(det_all) if domain == "excl" else det_all)["harmonized"]
+    tr_years = full["year"].astype(int).values
     if len(full) >= 8:
-        t = lib.sen_mk(full["year"].values, full["point"].values)
-        fa.add_trace(go.Scatter(x=full["year"], y=t["intercept"] + t["slope"] * full["year"], mode="lines",
+        t = lib.sen_mk(tr_years, tr_ann.reindex(tr_years, fill_value=0).values)
+        fa.add_trace(go.Scatter(x=tr_years, y=t["intercept"] + t["slope"] * tr_years, mode="lines",
                                 line=dict(color="#fde725", width=3, dash="dash"), name="Sen's slope"))
-        st.markdown(f"**Long-term trend ({int(full['year'].min())}–{int(full['year'].max())}, complete years):** "
+        st.markdown(f"**Long-term trend ({tr_years.min()}–{tr_years.max()}, complete years, constant area):** "
                     f"Sen's slope {t['slope']:+,.0f} {UNIT}/year (95% CI {t['lo']:+,.0f} to {t['hi']:+,.0f}; "
                     f"{t['rel']:+.1f}%/yr of the median); Mann–Kendall τ = {t['tau']:.2f}, p = {t['p']:.3f}. "
                     "Descriptive only: no correction for autocorrelation, and pre-2012 values are model estimates "
                     "(their intervals are not propagated into the slope CI).")
     with st.expander("Trend robustness: harmonized vs single-sensor raw series", expanded=True):
-        yr_all = lib.aggregate(lib.aoi_weekly(tuple(sorted(map(int, aoi["cells"]))), domain), ["year"])
-        rob = lib.trend_robustness(det, yr_all)
+        rob = lib.trend_robustness(det_all)
         signs = np.sign(rob["Sen's slope / yr"].iloc[:3].values)
         st.dataframe(rob.style.format({"Sen's slope / yr": "{:+,.0f}", "% of median / yr": "{:+.1f}%",
                                        "Mann–Kendall τ": "{:.2f}", "p": "{:.3f}"}),
@@ -162,9 +174,11 @@ def page_calendar():
         if len(set(signs[signs != 0])) > 1:
             st.warning("The three series disagree in the sign of the trend; treat the harmonized trend as not robust.")
         else:
-            st.caption("All three series agree in sign. Raw single-sensor slopes are in that sensor's own detection "
-                       "units; compare signs and % of median per year, not absolute values. Fixed periods, "
-                       "complete years, independent of the date-range filter.")
+            st.caption("All three constant-area series agree in sign. Raw single-sensor slopes are in that sensor's "
+                       "own detection units; compare signs and % of median per year, not absolute values. Fixed "
+                       "periods, complete years, independent of the date-range filter. Compare the 2001–2025 and "
+                       "pre-invasion (2001–2021) rows: a trend that is significant only with 2022–2025 included "
+                       "is driven by the war-time years.")
     fa.update_layout(height=330, title="Annual harmonized activity (error bars: 95% interval)",
                      yaxis_title=f"{UNIT} / year", margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fa, use_container_width=True, config=PNG_CONFIG)
@@ -227,8 +241,8 @@ def page_anomalies():
     import calendar_stats as cs
     aoi, domain = AOI, DOMAIN
     st.title("Anomalies & critical periods")
-    st.caption(f"{aoi['name']} · {lib.DOMAIN_LABELS[domain]} · unit: **{UNIT}**. Baselines are complete years "
-               "2001–2025 and always exclude the year being evaluated. Anomalies are percentiles, not z-scores "
+    st.caption(f"{aoi['name']} · {lib.DOMAIN_LABELS[domain]} · unit: **{UNIT}**. Baseline: complete years "
+               f"{BASE[0]}–{BASE[-1]} (sidebar), always excluding the year being evaluated. Anomalies are percentiles, not z-scores "
                "(the data are skewed and zero-inflated). Descriptive statistics only — no forecasts.")
     if len(aoi["cells"]) == 0:
         st.warning("Empty AOI.")
@@ -239,7 +253,7 @@ def page_anomalies():
     ysel = st.selectbox("Year to evaluate", years[::-1], index=years[::-1].index(2025) if 2025 in years else 0)
 
     # ---- climatology with selected year
-    cl = cs.climatology(wk, "woy", exclude_year=ysel)
+    cl = cs.climatology(wk, "woy", exclude_year=ysel, years=BASE)
     cur = wk[wk["year"] == ysel].set_index("woy").reindex(range(52))
     x = np.arange(1, 53)
     f = go.Figure()
@@ -264,7 +278,7 @@ def page_anomalies():
     gran = st.radio("Resolution", ["Month", "Week"], horizontal=True)
     period = "month" if gran == "Month" else "woy"
     src = mon if period == "month" else wk
-    P, V = cs.percentile_anomalies(src, period)
+    P, V = cs.percentile_anomalies(src, period, years=BASE)
     xs = ([pd.Timestamp(2000, m, 1).strftime("%b") for m in P.columns] if period == "month"
           else [c + 1 for c in P.columns])
     txt = np.vectorize(lambda v, p: f"{v:,.0f} hot spots · {p:.0f}th percentile")(V.values, P.values)
@@ -275,13 +289,13 @@ def page_anomalies():
                      "(blue = below, red = above median)", yaxis=dict(autorange="reversed"),
                      margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fh, use_container_width=True, config=PNG_CONFIG)
-    st.caption("Percentiles are computed against complete baseline years 2001–2025 without the evaluated year; for "
+    st.caption(f"Percentiles are computed against complete baseline years {BASE[0]}–{BASE[-1]} without the evaluated year; for "
                "2000 and 2026 (partial) only the covered weeks are meaningful. Pre-2012 values are MODIS-based "
                "estimates; their intervals are shown in the Calendar page hover.")
 
     # ---- critical periods
     st.subheader("Critical periods")
-    cp, thr = cs.critical_periods(wk)
+    cp, thr = cs.critical_periods(wk, years=BASE)
     fc = go.Figure(go.Bar(x=cp["woy"] + 1, y=cp["prob"] * 100,
                           marker_color=np.where(cp["critical"], "#b2182b", "#92c5de"),
                           error_y=dict(type="data", symmetric=False, array=(cp["hi95"] - cp["prob"]) * 100,
@@ -302,7 +316,7 @@ def page_anomalies():
 
     # ---- season metrics
     st.subheader("Season timing")
-    split = cs.season_split(wk)
+    split = cs.season_split(wk, years=BASE)
     sm = cs.season_metrics(wk[wk["year"].between(2001, 2025)], split=split)
     st.caption(("Bimodal season detected: spring / summer-autumn split at week "
                 f"{split + 1} (~{(pd.Timestamp(2001, 1, 1) + pd.Timedelta(days=split * 7)):%d %b}).")
@@ -423,10 +437,25 @@ VIIRS counts are never added together.
 - Land-cover classes come from a ~70 m overview of WorldCover; small patches are smoothed.
 - All statistics are descriptive; associations are not causation; no ignition forecasts are made.
 - Most recent weeks come from NRT processing, which can differ slightly from the later standard archive.
+- **Anomalies and critical periods use point estimates.** Model uncertainty of the pre-2012 values is not
+  propagated into percentiles or critical-week probabilities (their intervals reflect only year-to-year
+  variation). Errors of the MODIS-based estimates are correlated within a year, so a proper propagation would
+  need simulated whole-year error paths; this is future work. For small AOIs the default baseline is therefore
+  2012–2025 (observed VIIRS only).
+- **Weekly resolution:** season onset/peak/end are resolved to ±7 days; week 52 absorbs the last 8–9 days of the
+  year. With ≤25 baseline years a percentile step is ~4%; weeks with zero activity in an AOI where zero is
+  typical rank near the 40th–50th percentile (neutral), by design. The spring / summer-autumn split is fixed per
+  AOI from its climatology, so an unusually late spring can be partly counted as summer-autumn.
+- **Critical periods** use a 75th-percentile threshold pooled over all weeks of the baseline years (a per-week
+  threshold would be exceeded in ~25% of years by construction); for sparse AOIs the threshold can be 0
+  ("any activity").
+- **Long-term trends** are computed on a constant area. The significant decline in Ukraine without
+  conflict-affected oblasts (2001–2025) is not significant before the invasion (2001–2021), i.e. it depends on
+  the 2022–2025 years; we do not attribute it to any cause.
 """)
 
 
-AOI, DOMAIN, D0, D1 = sidebar()
+AOI, DOMAIN, D0, D1, BASE = sidebar()
 pg = st.navigation([st.Page(page_calendar, title="Calendar", icon="📅", default=True),
                     st.Page(page_anomalies, title="Anomalies & critical periods", icon="⚠️"),
                     st.Page(page_harmonization, title="Harmonization", icon="🛰️"),

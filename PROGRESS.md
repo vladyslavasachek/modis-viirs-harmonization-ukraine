@@ -106,3 +106,25 @@
   - critical-weeks bars with CI;
   - season timing;
   - CSV downloads.
+
+## Pre-Stage-5 fixes (19:08)
+- **Trend area check:** the open-ended conflict oblasts were already excluded in all years (100% flagged before and after 2022). But the north Feb–Apr 2022 window removed 4,733 of 7,344 VIIRS-equivalent hot spots in the 4 northern oblasts in 2022 alone. Trends now use a strict **constant area**: open-ended oblasts excluded in all years, north window kept. Computed from detection weights.
+- **Corrected trend table** (`trend_robustness_ukraine.csv`):
+
+  | Domain | Series | Period | Trend | p |
+  |---|---|---|---|---|
+  | Constant area | Harmonized | 2001–25 | −1,914/yr (−4.2%/yr) | 0.009 |
+  | Constant area | Raw Aqua | 2003–25 | −3.5%/yr | 0.064 |
+  | Constant area | Raw S-NPP | 2012–25 | −11.2%/yr | 0.019 |
+  | Constant area | Harmonized | 2001–21 | −2.4%/yr | **0.32** |
+  | All Ukraine | Harmonized | 2001–21 | −2.8%/yr | 0.20 |
+  | All Ukraine | Raw Aqua | 2003–21 | −0.5%/yr | 0.84 |
+  | All Ukraine | Raw S-NPP | 2012–21 | −4.0%/yr | 0.60 |
+  | All Ukraine incl. conflict | Harmonized | 2001–25 | −2.8%/yr | 0.08 |
+
+  - The signs agree everywhere. **The significant constant-area decline depends on 2022–2025**; there is no significant pre-invasion trend.
+- **Baseline toggle** (sidebar; applies to KPI, climatology, anomalies, critical periods, season split): 2001–2025 vs 2012–2025 VIIRS-only. The default is VIIRS-only for AOIs < 20 cells of 0.1°.
+- Limitations now cover: point estimates in percentiles, weekly resolution, zero-week ranks, fixed season split, the pooled threshold, and the trend's dependence on 2022–25.
+- Belarus FIRMS arrived:
+  - S-NPP: 86,249 archive (2012-01-26 → 2026-07-31) + 940 NRT;
+  - NOAA-20: 41,311 archive (2018-04-03 → 2026-07-31) + 970 NRT.
