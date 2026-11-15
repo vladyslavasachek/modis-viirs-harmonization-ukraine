@@ -2,7 +2,7 @@
 
 NASA Space Apps Challenge 2026 — *Harmonization of MODIS and VIIRS Hot Spots*.
 
-**Live app:** LIVE_APP_URL · **Code:** https://github.com/vladyslavasachek/modis-viirs-harmonization-ukraine
+**Live app:** https://modis-viirs-harmonization-ukraine-tktysg7vt3zggb6kzzbsnt.streamlit.app/ · **Code:** https://github.com/vladyslavasachek/modis-viirs-harmonization-ukraine
 
 A web application that turns 26 years of satellite active-fire detections (MODIS 2000–, VIIRS 2012–) into one
 consistent **burning-activity calendar** for any area of Ukraine, with uncertainty, anomalies and critical periods —
