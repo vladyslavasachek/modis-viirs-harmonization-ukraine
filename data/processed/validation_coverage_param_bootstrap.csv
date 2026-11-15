@@ -1,0 +1,13 @@
+level,interval,n,covered,coverage,model
+oblast_month,80,3094,662,0.21396250808015513,B1_TA
+oblast_month,95,3094,786,0.2540400775694893,B1_TA
+ukr_month,80,119,17,0.14285714285714285,B1_TA
+ukr_month,95,119,27,0.226890756302521,B1_TA
+ukr_year,80,10,3,0.3,B1_TA
+ukr_year,95,10,4,0.4,B1_TA
+oblast_month,80,3094,651,0.21040723981900453,B1_T
+oblast_month,95,3094,756,0.24434389140271492,B1_T
+ukr_month,80,119,13,0.1092436974789916,B1_T
+ukr_month,95,119,27,0.226890756302521,B1_T
+ukr_year,80,10,2,0.2,B1_T
+ukr_year,95,10,4,0.4,B1_T
