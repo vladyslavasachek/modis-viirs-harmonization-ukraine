@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Raw data
+data/raw/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
