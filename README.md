@@ -12,8 +12,9 @@ plus two additions: **automatic burn-type classification** (crop residue, grass,
 ![Harmonized vs raw](figures/02_harmonized_vs_raw_ukraine.png)
 
 ## Problem
-MODIS (1 km, since 2000) and VIIRS (375 m, since 2012) see the same fires very differently: VIIRS records 5–6×
-more detections because it resolves small and weak fires. A naive merged record "jumps" in 2012 — a sensor artefact,
+MODIS (1 km, since 2000) and VIIRS (375 m, since 2012) see the same fires very differently: VIIRS records about 3× more
+detections than Terra+Aqua MODIS (2.7–3.5× per year; 5–6× more than Aqua alone) because it resolves small and weak
+fires. A naive merged record "jumps" in 2012 — a sensor artefact,
 not more fire. S-NPP data delivery ended on 2 Nov 2026, so the record must also continue with NOAA-20.
 
 ## What the app does
@@ -79,7 +80,8 @@ not more fire. S-NPP data delivery ended on 2 Nov 2026, so the record must also 
   predicted type **14 agree — 78% (95% Wilson interval 55–91%)**; crop residue 7/7, forest 4/4, grass 1/1 (7 of 8
   unclear), peat 2/6 (all disagreements). Small, stratified, single-labeller sample: an indicative check only.
 - **Kyiv air:** PM2.5 from CAMS (2013–2026) **cannot validate the fire → PM link**: CAMS misses the April 2020 smoke
-  episode (Kyiv was rated the world's most polluted city on 16–17 April 2020 while CAMS PM2.5 stayed at 6–16 µg/m³)
+  episode (Kyiv was rated the world's most polluted city on 16–17 April 2020 while CAMS PM2.5 was only 9–11 µg/m³ on
+  16–18 April, below its own long-term median of 11.5 µg/m³)
   and assimilates satellite-FRP-based fire emissions (partly circular); adding fire load gives no out-of-sample gain
   (R² 0.651 → 0.650). Ground stations (OpenAQ, low-cost sensors, Sept 2023 – Nov 2026 only): small out-of-sample
   gain (R² 0.305 → 0.322), not on high-PM days.

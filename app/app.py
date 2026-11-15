@@ -583,8 +583,9 @@ source region, below). **The fire → PM link itself is not validated:** the lon
         st.warning("**Diagnostic case.** Upwind fire load on 10 and 17–18 April 2020 is among the highest in the "
                    "record (wind from the north-west, i.e. from the Chornobyl Exclusion Zone / Zhytomyr fires), and "
                    "Kyiv was reported as the most polluted city in the world on 16–17 April 2020 (IQAir US AQI "
-                   "238–380, per Hromadske and Heinrich Böll Stiftung reports). The **CAMS PM2.5 at Kyiv stays at "
-                   "6–16 µg/m³** — the model misses this smoke episode. CAMS-based statistics below therefore "
+                   "238–380, per Hromadske and Heinrich Böll Stiftung reports). The **CAMS PM2.5 at Kyiv is only "
+                   "9–11 µg/m³ on 16–18 April** (below its own long-term median of 11.5 µg/m³) — the model misses "
+                   "this smoke episode. CAMS-based statistics below therefore "
                    "cannot validate the fire–air link; ground-station PM is needed.")
 
     # ---- validation of the fire -> PM link
