@@ -309,3 +309,12 @@ def worldview(lat, lon, date, pad=0.25):
     """NASA Worldview link (same layers as src/events_validation.py)."""
     return (f"https://worldview.earthdata.nasa.gov/?v={lon - pad:.3f},{lat - pad * 0.65:.3f},{lon + pad:.3f},"
             f"{lat + pad * 0.65:.3f}&l={WV_LAYERS}&t={date:%Y-%m-%d}-T12:00:00Z")
+
+
+def weekly_from_detections(det: pd.DataFrame, value: str = "weight", sensor: str | None = None) -> pd.DataFrame:
+    """Weekly series (year, woy, point) from detections: harmonized (sum of weights) or raw counts of one sensor."""
+    d = det if sensor is None else det[det["sensor"] == sensor]
+    t = d["datetime_utc"]
+    g = pd.DataFrame({"year": t.dt.year, "woy": np.minimum((t.dt.dayofyear - 1) // 7, 51),
+                      "v": d[value].astype(float) if sensor is None else 1.0})
+    return g.groupby(["year", "woy"])["v"].sum().rename("point").reset_index()

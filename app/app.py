@@ -118,7 +118,7 @@ def page_calendar():
                              text=hover_text(wk), hovertemplate="%{x|%d %b %Y}: %{text}<extra></extra>"))
     fig.update_layout(height=320, margin=dict(l=10, r=10, t=30, b=10), yaxis_title=f"{UNIT} / week",
                       title="Weekly harmonized activity", legend=dict(orientation="h", y=1.12))
-    st.plotly_chart(fig, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fig, width="stretch", config=PNG_CONFIG)
 
     # ---- heatmaps
     c1 = c2 = st.container()
@@ -130,7 +130,7 @@ def page_calendar():
                               colorbar=dict(title="hot spots")))
     f1.update_layout(height=480, title="Week of year × year", xaxis_title="week of year", yaxis_title="year",
                      margin=dict(l=10, r=10, t=40, b=10), yaxis=dict(autorange="reversed"))
-    c1.plotly_chart(f1, use_container_width=True, config=PNG_CONFIG)
+    c1.plotly_chart(f1, width="stretch", config=PNG_CONFIG)
     mon = lib.aggregate(wk, ["year", "month"])
     hm2 = mon.pivot(index="year", columns="month", values="point")
     txt2 = mon.assign(t=lib.fmt_interval(mon)).pivot(index="year", columns="month", values="t")
@@ -140,7 +140,7 @@ def page_calendar():
                               colorbar=dict(title="hot spots")))
     f2.update_layout(height=480, title="Month × year", yaxis=dict(autorange="reversed"),
                      margin=dict(l=10, r=10, t=40, b=10))
-    c2.plotly_chart(f2, use_container_width=True, config=PNG_CONFIG)
+    c2.plotly_chart(f2, width="stretch", config=PNG_CONFIG)
     st.caption("Hover shows the value with 80/95% intervals (MODIS-based years) or 'observed' (S-NPP years) and "
                "the data source. Use the camera icon on any plot to download it as PNG.")
 
@@ -170,7 +170,7 @@ def page_calendar():
         signs = np.sign(rob["Sen's slope / yr"].iloc[:3].values)
         st.dataframe(rob.style.format({"Sen's slope / yr": "{:+,.0f}", "% of median / yr": "{:+.1f}%",
                                        "Mann–Kendall τ": "{:.2f}", "p": "{:.3f}"}),
-                     hide_index=True, use_container_width=True)
+                     hide_index=True, width="stretch")
         if len(set(signs[signs != 0])) > 1:
             st.warning("The three series disagree in the sign of the trend; treat the harmonized trend as not robust.")
         else:
@@ -181,18 +181,18 @@ def page_calendar():
                        "is driven by the war-time years.")
     fa.update_layout(height=330, title="Annual harmonized activity (error bars: 95% interval)",
                      yaxis_title=f"{UNIT} / year", margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(fa, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fa, width="stretch", config=PNG_CONFIG)
 
     # ---- top months / years
     c1, c2 = st.columns(2)
     tm = mon.sort_values("point", ascending=False).head(10)
     c1.markdown("**Top 10 months**")
     c1.dataframe(pd.DataFrame({"month": [f"{pd.Timestamp(2000, int(m), 1):%b} {int(y)}" for y, m in zip(tm["year"], tm["month"])],
-                               UNIT: lib.fmt_interval(tm).values}), hide_index=True, use_container_width=True)
+                               UNIT: lib.fmt_interval(tm).values}), hide_index=True, width="stretch")
     ty = yr.sort_values("point", ascending=False).head(10)
     c2.markdown("**Top 10 years**")
     c2.dataframe(pd.DataFrame({"year": ty["year"].astype(int).values, UNIT: lib.fmt_interval(ty).values}),
-                 hide_index=True, use_container_width=True)
+                 hide_index=True, width="stretch")
     st.caption("Partial years (2000, 2026) and partial date ranges are included as-is.")
 
     # ---- downloads
@@ -227,7 +227,7 @@ def draw_map():
         tooltip=folium.GeoJsonTooltip(fields=["shapeName"], labels=False)).add_to(m)
     Draw(export=False, draw_options=dict(polyline=False, circle=False, marker=False, circlemarker=False,
                                          rectangle=True, polygon=True)).add_to(m)
-    out = st_folium(m, height=380, use_container_width=True, returned_objects=["last_active_drawing"])
+    out = st_folium(m, height=380, width="stretch", returned_objects=["last_active_drawing"])
     g = (out or {}).get("last_active_drawing")
     if g and g.get("geometry"):
         poly = shapely.geometry.shape(g["geometry"])
@@ -271,7 +271,7 @@ def page_anomalies():
                            text=lib.fmt_interval(cur.fillna(0)), hovertemplate="week %{x}: %{text}<extra></extra>"))
     f.update_layout(height=360, title=f"Weekly activity in {ysel} vs climatology of the other years",
                     xaxis_title="week of year", yaxis_title=f"{UNIT} / week", margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(f, width="stretch", config=PNG_CONFIG)
 
     # ---- percentile anomalies
     st.subheader("Percentile anomalies")
@@ -288,7 +288,7 @@ def page_anomalies():
     fh.update_layout(height=520, title=f"{gran}ly activity as percentile of the same {gran.lower()} in other years "
                      "(blue = below, red = above median)", yaxis=dict(autorange="reversed"),
                      margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(fh, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fh, width="stretch", config=PNG_CONFIG)
     st.caption(f"Percentiles are computed against complete baseline years {BASE[0]}–{BASE[-1]} without the evaluated year; for "
                "2000 and 2026 (partial) only the covered weeks are meaningful. Pre-2012 values are MODIS-based "
                "estimates; their intervals are shown in the Calendar page hover.")
@@ -305,7 +305,7 @@ def page_anomalies():
     fc.update_layout(height=330, xaxis_title="week of year", yaxis_title="probability (%)",
                      title=f"Probability that a week exceeds the baseline 75th percentile of weekly activity "
                            f"(≈{thr:,.0f} {UNIT}/week); red = critical (>50%)", margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(fc, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fc, width="stretch", config=PNG_CONFIG)
     crit = cp.loc[cp["critical"], "woy"].values
     if len(crit):
         dates = [(pd.Timestamp(2001, 1, 1) + pd.Timedelta(days=int(w) * 7)).strftime("%d %b") for w in crit]
@@ -332,9 +332,27 @@ def page_anomalies():
                                 hovertemplate="%{x}: peak day %{y}<extra></extra>"))
     fs.update_layout(height=380, yaxis_title="day of year (bars: onset 10% → end 90%)",
                      title="Season onset, peak and end by year", margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(fs, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fs, width="stretch", config=PNG_CONFIG)
     st.dataframe(sm.groupby("season")[["onset_doy", "peak_doy", "end_doy", "length_days"]].median()
-                 .rename(columns=lambda c: "median " + c.replace("_", " ")), use_container_width=True)
+                 .rename(columns=lambda c: "median " + c.replace("_", " ")), width="stretch")
+    # ---- season-shift trends (Stage 7)
+    st.subheader("Season-shift trends")
+    det_all = lib.aoi_detections(aoi, "all")
+    det_c = lib.constant_area(det_all) if domain == "excl" else det_all
+    ser = {"Harmonized": lib.weekly_from_detections(det_c),
+           "Raw Aqua-MODIS only": lib.weekly_from_detections(det_c, sensor="MODIS Aqua"),
+           "Raw VIIRS S-NPP only": lib.weekly_from_detections(det_c, sensor="VIIRS S-NPP")}
+    tr = cs.season_shift_trends(ser, split, {"Harmonized": (2003, 2025), "Raw Aqua-MODIS only": (2003, 2025),
+                                             "Raw VIIRS S-NPP only": (2012, 2025)})
+    if len(tr):
+        piv = tr.pivot_table(index=["season", "metric"], columns="series", values="slope_days_per_decade")
+        pv = tr.pivot_table(index=["season", "metric"], columns="series", values="p")
+        show = piv.round(1).astype(str) + " (p=" + pv.round(2).astype(str) + ")"
+        st.dataframe(show, width="stretch")
+        st.caption("Sen's slope of onset (10% of seasonal total), peak and end (90%) in **days per decade** "
+                   "(negative = earlier), Mann–Kendall p-value; constant area; complete years. Timing is relative, so "
+                   "agreement between the harmonized and the raw single-sensor series means a shift is not a "
+                   "harmonization artefact. Weekly resolution (±7 days) limits precision; descriptive only.")
     c1, c2 = st.columns(2)
     c1.download_button("⬇ Percentile anomalies CSV", P.round(1).to_csv().encode(), f"anomaly_percentiles_{period}.csv")
     c2.download_button("⬇ Season metrics CSV", sm.to_csv(index=False).encode(), "season_metrics.csv")
@@ -369,7 +387,7 @@ def page_burn_types():
                category_orders={"burn_type": lib.TYPE_ORDER}, labels={"weight": f"{UNIT} / month", "burn_type": "type"})
     f.update_layout(height=360, title="Monthly harmonized activity by burn type", bargap=0,
                     margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=-0.2))
-    st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(f, width="stretch", config=PNG_CONFIG)
     c1, c2 = st.columns(2)
     y = det.groupby(["year", "burn_type"], observed=True)["weight"].sum().reset_index()
     y["share"] = y["weight"] / y.groupby("year")["weight"].transform("sum")
@@ -377,7 +395,7 @@ def page_burn_types():
                 category_orders={"burn_type": lib.TYPE_ORDER}, labels={"share": "share of activity"})
     f1.update_layout(height=340, title="Type shares by year", showlegend=False, margin=dict(l=10, r=10, t=40, b=10),
                      yaxis_tickformat=".0%")
-    c1.plotly_chart(f1, use_container_width=True, config=PNG_CONFIG)
+    c1.plotly_chart(f1, width="stretch", config=PNG_CONFIG)
     sz = det.groupby(["season", "burn_type"], observed=True)["weight"].sum().reset_index()
     sz["share"] = sz["weight"] / sz.groupby("season")["weight"].transform("sum")
     f2 = px.bar(sz, x="season", y="share", color="burn_type", color_discrete_map=cmap,
@@ -385,7 +403,7 @@ def page_burn_types():
                 labels={"share": "share of activity"})
     f2.update_layout(height=340, title="Type shares by season", showlegend=False, margin=dict(l=10, r=10, t=40, b=10),
                      yaxis_tickformat=".0%")
-    c2.plotly_chart(f2, use_container_width=True, config=PNG_CONFIG)
+    c2.plotly_chart(f2, width="stretch", config=PNG_CONFIG)
     st.caption("Shares are of harmonized activity (S-NPP-equivalent weights). Years before 2012 use land-cover-only "
                "typing of MODIS detections.")
 
@@ -405,7 +423,7 @@ def page_burn_types():
                         map_style="open-street-map", zoom=5 if len(aoi["cells"]) > 500 else 7, height=480,
                         center=dict(lat=float(top["lat"].median()), lon=float(top["lon"].median())))
     fm.update_layout(margin=dict(l=0, r=0, t=0, b=0), legend=dict(orientation="h", y=-0.05))
-    st.plotly_chart(fm, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fm, width="stretch", config=PNG_CONFIG)
     st.caption(f"{len(ev):,} events with ≥ 2 detections in AOI and date range (largest 3,000 shown; marker size = "
                "number of detections). Single-detection events are not mapped.")
 
@@ -418,7 +436,7 @@ def page_burn_types():
     e1 = cand.iloc[pick]
     tab, nref = lib.event_percentiles(e1)
     c1, c2 = st.columns([3, 2])
-    c1.dataframe(tab.style.format({"percentile in oblast": "{:.0f}th"}), hide_index=True, use_container_width=True)
+    c1.dataframe(tab.style.format({"percentile in oblast": "{:.0f}th"}), hide_index=True, width="stretch")
     c2.markdown(f"**Type:** {e1['burn_type']} (confidence: {e1['type_confidence']}; GMM cluster majority: "
                 f"{e1['gmm_label']})  \n**Land cover:** crop {e1['lc_crop']:.0%}, grass {e1['lc_grass']:.0%}, "
                 f"tree {e1['lc_tree']:.0%}, wetland {e1['lc_wetland']:.0%}  \n**Night fraction:** "
@@ -430,7 +448,7 @@ def page_burn_types():
     with st.expander("How the labels were validated", expanded=False):
         kc = pd.read_csv(os.path.join(lib.PROC, "events_known_cases.csv"))
         st.markdown("**Known episodes**")
-        st.dataframe(kc.style.format({"share_of_detections": "{:.1%}"}), hide_index=True, use_container_width=True)
+        st.dataframe(kc.style.format({"share_of_detections": "{:.1%}"}), hide_index=True, width="stretch")
         st.markdown("""
 - **Chornobyl Exclusion Zone, April 2020** (forest and grass fires; ~365 km² burned inside the zone according to
   Newman-Thacker & Turnbull 2021, *Natural Hazards*): 98.5% of detections typed *forest*, the rest grass/other — **consistent**.
@@ -447,7 +465,7 @@ def page_burn_types():
   manual labelling (pending).""")
         ct = pd.read_csv(os.path.join(lib.PROC, "events_gmm_vs_rules_crosstab.csv"), index_col=0)
         st.markdown("GMM cluster × rule label (events):")
-        st.dataframe(ct, use_container_width=True)
+        st.dataframe(ct, width="stretch")
 
 
 KY = os.path.join(lib.PROC, "kyiv")
@@ -489,7 +507,7 @@ source region, below). **The fire → PM link itself is not validated:** the lon
                              colorbar=dict(title="log10(1+UFL)")))
     f.update_layout(height=420, title="Weekly upwind fire load for Kyiv (sum of daily UFL, FRP-weighted, MW)",
                     yaxis=dict(autorange="reversed"), xaxis_title="week of year", margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(f, width="stretch", config=PNG_CONFIG)
     c1, c2 = st.columns(2)
     bt2 = bt.assign(year=pd.to_datetime(bt["date"]).dt.year).drop(columns="date").groupby("year").sum()
     bl = bt2.reset_index().melt("year", var_name="burn_type", value_name="ufl")
@@ -497,13 +515,13 @@ source region, below). **The fire → PM link itself is not validated:** the lon
                 category_orders={"burn_type": lib.TYPE_ORDER}, labels={"ufl": "annual UFL"})
     f1.update_layout(height=360, title="Upwind load by burn type", legend=dict(orientation="h", y=-0.3),
                      margin=dict(l=10, r=10, t=40, b=10))
-    c1.plotly_chart(f1, use_container_width=True, config=PNG_CONFIG)
+    c1.plotly_chart(f1, width="stretch", config=PNG_CONFIG)
     rs = br.drop(columns="date").sum().sort_values(ascending=False)
     rs = (rs / rs.sum()).head(10)
     f2 = go.Figure(go.Bar(x=rs.values * 100, y=rs.index, orientation="h", marker_color="#21918c"))
     f2.update_layout(height=360, title="Share of total upwind load by source region (2012–2026)",
                      xaxis_title="%", yaxis=dict(autorange="reversed"), margin=dict(l=10, r=10, t=40, b=10))
-    c2.plotly_chart(f2, use_container_width=True, config=PNG_CONFIG)
+    c2.plotly_chart(f2, width="stretch", config=PNG_CONFIG)
 
     # ---- high-PM days
     st.subheader("Main result: what burns upwind of Kyiv on poor-air days")
@@ -521,9 +539,9 @@ source region, below). **The fire → PM link itself is not validated:** the lon
     t = pd.read_csv(os.path.join(KY, "kyiv_highpm_load_by_type.csv"), index_col=0).iloc[:, 0]
     r = pd.read_csv(os.path.join(KY, "kyiv_highpm_load_by_region.csv"), index_col=0).iloc[:, 0].head(8)
     c1.markdown("**On high-PM & high-load days — burn types**")
-    c1.dataframe(t.rename("share of upwind load").to_frame().style.format("{:.1%}"), use_container_width=True)
+    c1.dataframe(t.rename("share of upwind load").to_frame().style.format("{:.1%}"), width="stretch")
     c2.markdown("**…and source regions**")
-    c2.dataframe(r.rename("share of upwind load").to_frame().style.format("{:.1%}"), use_container_width=True)
+    c2.dataframe(r.rename("share of upwind load").to_frame().style.format("{:.1%}"), width="stretch")
     st.caption("Poor-air days here are defined with the CAMS model PM2.5 (2013–2026, the only long series); "
                "with the 2023–2026 ground stations the lift is 2.2× (below).")
     st.info("**Where and what to control to protect Kyiv's air (association):** on poor-air days with high upwind "
@@ -543,7 +561,7 @@ source region, below). **The fire → PM link itself is not validated:** the lon
     fc.update_layout(height=360, title=case, margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=1.1))
     fc.update_yaxes(title_text="UFL (MW, distance-weighted)", secondary_y=False)
     fc.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=True)
-    st.plotly_chart(fc, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fc, width="stretch", config=PNG_CONFIG)
     if case.startswith("April 2020"):
         st.warning("**Diagnostic case.** Upwind fire load on 10 and 17–18 April 2020 is among the highest in the "
                    "record (wind from the north-west, i.e. from the Chornobyl Exclusion Zone / Zhytomyr fires), and "
@@ -581,7 +599,7 @@ source region, below). **The fire → PM link itself is not validated:** the lon
                      margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=1.12))
     fs.update_yaxes(title_text="UFL (MW)", secondary_y=False)
     fs.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=True)
-    st.plotly_chart(fs, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fs, width="stretch", config=PNG_CONFIG)
     st.caption("Stations read 30–50 µg/m³ while CAMS stays at 9–21 µg/m³ during this smoke period — again CAMS "
                "underestimates smoke. Low-cost sensors are uncorrected for humidity; absolute values are uncertain.")
     with st.expander("Regression details (CAMS 2013–2026 and stations 2023–2026)"):
@@ -589,12 +607,12 @@ source region, below). **The fire → PM link itself is not validated:** the lon
         st.markdown("**CAMS, chronological split train 2013–2021 / test 2022–2026** (target: log PM2.5 minus its "
                     "trailing level; controls: month, 100 m wind speed & direction, boundary-layer height, "
                     "precipitation, Tmax, relative humidity)")
-        st.dataframe(v, hide_index=True, use_container_width=True)
+        st.dataframe(v, hide_index=True, width="stretch")
         st.markdown("**Stations vs CAMS on the same 1,041 days** (log PM2.5, month effects, same controls; "
                     "train < Jul 2025)")
-        st.dataframe(sv, hide_index=True, use_container_width=True)
+        st.dataframe(sv, hide_index=True, width="stretch")
         st.dataframe(pd.read_csv(os.path.join(KY, "kyiv_station_regression_coefficients.csv"), index_col=0),
-                     use_container_width=True)
+                     width="stretch")
         st.caption("Coefficients are associations from short, noisy series; HAC (Newey–West) standard errors. "
                    "They are not the headline result.")
     st.download_button("⬇ Daily Kyiv table (UFL, PM2.5, meteorology) CSV",
@@ -618,7 +636,7 @@ def page_harmonization():
     fig.update_layout(height=420, yaxis_title=f"{UNIT} / year (raw lines: detections)",
                       title="All of Ukraine: the 2012 sensor jump disappears after harmonization",
                       margin=dict(l=10, r=10, t=40, b=10))
-    st.plotly_chart(fig, use_container_width=True, config=PNG_CONFIG)
+    st.plotly_chart(fig, width="stretch", config=PNG_CONFIG)
     st.markdown("""
 **Method.** Reference scale = VIIRS S-NPP 375 m. For 2000–2012 (and S-NPP outage weeks before NOAA-20) the
 S-NPP-equivalent value is estimated from MODIS detections with **B1**: a ratio VIIRS/MODIS by month × day/night,
@@ -637,7 +655,7 @@ GLM (M1) did not validate better than the simple ratios.""")
             "cell_month_WAPE": "WAPE cell×month", "ukr_month_bias": "bias"}
     vt = v[list(cols)].rename(columns=cols).sort_values(["MODIS input", "model"], ascending=[False, True])
     st.dataframe(vt.style.format({c: "{:.1%}" for c in cols.values() if c.startswith(("WAPE", "bias"))}),
-                 hide_index=True, use_container_width=True)
+                 hide_index=True, width="stretch")
     st.caption("WAPE = Σ|pred − obs| / Σ obs. B2 = B1 × dominant land cover; M1_noFRP = GLM without FRP term. "
                "Cell = 0.5°.")
     st.markdown("**Interval calibration.** Year-bootstrap of the ratios alone gave far too narrow intervals "
@@ -646,7 +664,7 @@ GLM (M1) did not validate better than the simple ratios.""")
     cv = pd.read_csv(os.path.join(lib.PROC, "validation_interval_coverage.csv"))
     st.dataframe(cv.pivot_table(index=["model", "level"], columns="interval", values="coverage")
                  .rename(columns={"80": "80% nominal", "95": "95% nominal"}).style.format("{:.0%}"),
-                 use_container_width=True)
+                 width="stretch")
     st.markdown("**Sensitivity (fit on 2012–2025 with conflict-affected detections excluded).** "
                 "22 of 24 month × day/night ratios stay inside the main fit's 95% bootstrap range "
                 "(May and Sep night ratios −20%). Applying the 2012–2021 model to 2022–2025 out of sample gives "
@@ -663,7 +681,7 @@ GLM (M1) did not validate better than the simple ratios.""")
                                             arrayminus=yr["point"] - yr["lo95"])))
         f.update_layout(height=360, title=f"Selected AOI: {AOI['name']} ({lib.DOMAIN_LABELS[DOMAIN]})",
                         yaxis_title=UNIT, margin=dict(l=10, r=10, t=40, b=10))
-        st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+        st.plotly_chart(f, width="stretch", config=PNG_CONFIG)
 
 
 def page_methods():

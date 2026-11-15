@@ -208,3 +208,23 @@
   - explicit "with CAMS the fire→PM link is not validated";
   - stations = partial, short-period evidence;
   - regression details moved to an expander.
+
+## Stage 7 — Season-shift trends (done, 20:30)
+- `calendar_stats.season_shift_trends`: Mann–Kendall + Sen's slope on onset/peak/end (10/max/90% of the seasonal total). Ukraine constant area; split week 22. File: `season_shift_trends_ukraine.csv`. Shown on the Anomalies page for any AOI.
+- Ukraine (days per decade):
+
+  | Shift | Harmonized | Raw Aqua-only | Raw S-NPP-only 2012–25 |
+  |---|---|---|---|
+  | Spring onset | **−8.8 (p 0.03)** | **−10.0 (p 0.02)** | 0 (p 0.35) |
+  | Summer–autumn onset | **−5.4 (p 0.01)** | **−5.4 (p 0.05)** | 0 (p 0.95) |
+  | Spring end, 2012–25 | +17.5 (p 0.01) | 0 (p 0.34) | +15.6 (p 0.03) |
+
+  - Earlier onsets: harmonized and Aqua agree over 2003–25 (not a harmonization artefact), but they are not seen in the shorter VIIRS window.
+  - The later spring end in 2012–25 is not confirmed by Aqua.
+  - Peaks: no consistent trend.
+- Deploy prep:
+  - pinned `requirements.txt`;
+  - the app no longer imports pipeline modules;
+  - `use_container_width` replaced with `width="stretch"`;
+  - clean-clone headless run OK;
+  - `.env`, `data/raw`, `data/interim` not tracked.

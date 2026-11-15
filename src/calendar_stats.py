@@ -94,3 +94,24 @@ def season_metrics(df: pd.DataFrame, years=None, split: int | None = None) -> pd
     out = pd.DataFrame(rows)
     out["length_days"] = out["end_doy"] - out["onset_doy"] + 7
     return out
+
+
+def season_shift_trends(series: dict, split: int | None, periods: dict) -> pd.DataFrame:
+    """Mann-Kendall + Sen's slope on onset / peak / end day-of-year per season.
+    series: {name: weekly frame (year, woy, point)}; periods: {name: (y0, y1)}. Slopes in days per decade."""
+    from scipy.stats import kendalltau, theilslopes
+    rows = []
+    for name, df in series.items():
+        y0, y1 = periods[name]
+        sm = season_metrics(df[df["year"].between(y0, y1)], years=list(range(y0, y1 + 1)), split=split)
+        for (sea), g in sm.groupby("season"):
+            g = g[g["total"] > 0]
+            for m in ("onset_doy", "peak_doy", "end_doy"):
+                if g[m].notna().sum() < 8:
+                    continue
+                s = theilslopes(g[m], g["year"])
+                tau, p = kendalltau(g["year"], g[m])
+                rows.append(dict(series=name, period=f"{y0}–{y1}", season=sea, metric=m.replace("_doy", ""),
+                                 slope_days_per_decade=s.slope * 10, ci_lo=s.low_slope * 10, ci_hi=s.high_slope * 10,
+                                 tau=tau, p=p, median_doy=g[m].median()))
+    return pd.DataFrame(rows)
