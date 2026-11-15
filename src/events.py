@@ -22,6 +22,7 @@ from scipy.spatial import cKDTree
 
 sys.path.insert(0, os.path.dirname(__file__))
 from harmonize import INTERIM, PROC
+from peat import on_peat
 
 EPS_KM, EPS_DAYS = 1.0, 2.0
 OUT = os.path.join(PROC, "app")
@@ -81,6 +82,9 @@ def recurrence(v: pd.DataFrame, d_all: pd.DataFrame) -> np.ndarray:
 
 def features(v: pd.DataFrame) -> pd.DataFrame:
     v = v.assign(night=(v["daynight"] == "N").astype(float), conflict=v["conflict_zone"].astype(float))
+    if "on_peat" not in v:
+        v["on_peat"] = on_peat(v["lat"].values, v["lon"].values)
+    v["on_peat"] = v["on_peat"].astype(float)
     for lc in ("crop", "grass", "tree", "wetland", "built"):
         v[f"lc_{lc}"] = (v["landcover"] == lc).astype(float)
     v["lc_other"] = 1 - v[[f"lc_{c}" for c in ("crop", "grass", "tree", "wetland")]].sum(axis=1)
@@ -93,7 +97,7 @@ def features(v: pd.DataFrame) -> pd.DataFrame:
               night_frac=("night", "mean"), lat=("lat", "mean"), lon=("lon", "mean"),
               lc_crop=("lc_crop", "mean"), lc_grass=("lc_grass", "mean"), lc_tree=("lc_tree", "mean"),
               lc_wetland=("lc_wetland", "mean"), lc_built=("lc_built", "mean"), lc_other=("lc_other", "mean"),
-              recur_frac=("recur", "mean"), conflict_frac=("conflict", "mean"),
+              recur_frac=("recur", "mean"), conflict_frac=("conflict", "mean"), peat_frac=("on_peat", "mean"),
               xmin=("x", "min"), xmax=("x", "max"), ymin=("y", "min"), ymax=("y", "max"))
     e["oblast"] = g["oblast"].agg(lambda s: s.mode().iat[0] if s.notna().any() else None) if len(e) < 2000 else \
         v.groupby(["event_id", "oblast"]).size().reset_index(name="k").sort_values("k").drop_duplicates(
@@ -106,19 +110,34 @@ def features(v: pd.DataFrame) -> pd.DataFrame:
     return e.reset_index()
 
 
+def _rules(e, peat):
+    lab = np.full(len(e), TYPES[4], dtype=object)
+    forest = ~peat & (e["lc_tree"] >= 0.5)
+    crop = ~peat & ~forest & (e["lc_crop"] >= 0.5) & (e["duration_days"] <= 3)
+    grass = ~peat & ~forest & ~crop & (e["lc_grass"] >= 0.5)
+    for m, t in ((peat, TYPES[3]), (forest, TYPES[2]), (crop, TYPES[0]), (grass, TYPES[1])):
+        lab[np.asarray(m)] = t
+    return lab
+
+
 def rule_types(e: pd.DataFrame) -> pd.DataFrame:
     """Transparent rules (applied in this order):
-    1 peat / wetland smouldering: wetland share >= 0.3 AND duration >= 2 d AND night fraction >= 0.35
-      AND mean FRP <= 10 MW (long, night-persistent, low-intensity)
+    1 peat / wetland smouldering: (a) >= 50% of detections on mapped peat (PEATMAP, Xu et al. 2018), regardless of
+      WorldCover - drained peatlands are often mapped as grass/cropland; OR (b) wetland share >= 0.3 AND
+      duration >= 2 d AND night fraction >= 0.35 AND mean FRP <= 10 MW (long, night-persistent, low-intensity)
     2 forest: tree share >= 0.5
     3 crop residue / field: cropland share >= 0.5 AND duration <= 3 d
     4 grass / abandoned land: grass (+shrub) share >= 0.5
     5 other / uncertain: everything else (mixed land cover, long cropland events, built-up, ...)
     Confidence: high if the deciding land-cover share >= 0.8, medium if >= 0.6, else low (peat: always medium,
-    because there is no peat map - WorldCover herbaceous wetland is a proxy)."""
+    because PEATMAP is a coarse compilation and WorldCover herbaceous wetland is only a proxy)."""
     lab = np.full(len(e), TYPES[4], dtype=object)
     share = np.zeros(len(e))
-    peat = (e["lc_wetland"] >= 0.3) & (e["duration_days"] >= 2) & (e["night_frac"] >= 0.35) & (e["frp_mean"] <= 10)
+    peat_sig = (e["lc_wetland"] >= 0.3) & (e["duration_days"] >= 2) & (e["night_frac"] >= 0.35) & (e["frp_mean"] <= 10)
+    peat_map = e["peat_frac"] >= 0.5 if "peat_frac" in e else False
+    # label without the peat map (for before/after comparison)
+    e["burn_type_wc_only"] = _rules(e, peat_sig)
+    peat = peat_sig | peat_map
     forest = ~peat & (e["lc_tree"] >= 0.5)
     crop = ~peat & ~forest & (e["lc_crop"] >= 0.5) & (e["duration_days"] <= 3)
     grass = ~peat & ~forest & ~crop & (e["lc_grass"] >= 0.5)
@@ -127,7 +146,7 @@ def rule_types(e: pd.DataFrame) -> pd.DataFrame:
         lab[m.values] = t
         share[m.values] = e.loc[m, col].values
     conf = np.where(share >= 0.8, "high", np.where(share >= 0.6, "medium", "low"))
-    conf[peat.values] = "medium"
+    conf[np.asarray(peat)] = "medium"
     e["burn_type"] = lab
     e["type_confidence"] = conf
     return e
@@ -172,7 +191,8 @@ def main():
     e["conflict_event"] = e["conflict_frac"] > 0.5
     keep = ["event_id", "start", "end", "year", "doy", "n_det", "duration_days", "extent_km", "frp_mean", "frp_max",
             "frp_sum", "night_frac", "lat", "lon", "oblast", "lc_crop", "lc_grass", "lc_tree", "lc_wetland",
-            "lc_built", "lc_other", "recur_frac", "conflict_frac", "conflict_event", "burn_type", "type_confidence",
+            "lc_built", "lc_other", "recur_frac", "conflict_frac", "peat_frac", "conflict_event", "burn_type",
+            "burn_type_wc_only", "type_confidence",
             "gmm_cluster", "gmm_label"]
     ev = e[keep].copy()
     for c in ev.select_dtypes("float64").columns:

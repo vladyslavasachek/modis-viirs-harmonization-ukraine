@@ -347,7 +347,8 @@ def page_burn_types():
     st.caption(f"{aoi['name']} · {lib.DOMAIN_LABELS[domain]} · {d0:%Y-%m-%d} – {d1:%Y-%m-%d} · unit: **{UNIT}**")
     st.warning("Burn-type labels are **model output, not ground truth**. From 2012, VIIRS S-NPP detections are "
                "grouped into fire events (space-time clustering, ≤1 km and ≤2 days) and typed by transparent rules "
-               "(dominant WorldCover class, duration, night fraction, FRP). Before 2012 (MODIS) and for NOAA-20 "
+               "(dominant WorldCover class, duration, night fraction, FRP; events on mapped peat — PEATMAP, Xu et al. 2018 — "
+               "are typed peat regardless of land cover). Before 2012 (MODIS) and for NOAA-20 "
                "detections, the type comes from land cover only (**lower confidence**). See validation below.")
     if len(aoi["cells"]) == 0:
         st.warning("Empty AOI.")
@@ -436,8 +437,10 @@ def page_burn_types():
   Newman-Thacker & Turnbull 2021, *Natural Hazards*): 98.5% of detections typed *forest*, the rest grass/other — **consistent**.
 - **Kyiv-region peat fires, late Aug – Oct 2015** (Vyshhorod district; reported by regional media and studied in a
   Kharkiv University journal paper): only 8% of detections typed *peat*; most were labelled *grass* — drained peatlands
-  appear as grassland in WorldCover and VIIRS saw short, daytime, relatively intense detections. **The peat rule has
-  low recall for drained peatlands**; peat activity is likely underestimated.
+  appear as grassland in WorldCover and VIIRS saw short, daytime, relatively intense detections. Adding the
+  **PEATMAP** layer (events with ≥ 50% of detections on mapped peat → peat) raised peat events from 215 to 6,856
+  (Polesia, Belarus) but did **not** change this case: PEATMAP has no polygon within ~70 km of these fires.
+  **Peat activity near Kyiv is likely underestimated.**
 - **Unsupervised cross-check:** a 5-component Gaussian mixture on standardized event features agrees with the rule
   labels for 85% of events (adjusted Rand index 0.45, NMI 0.51); four clusters align with forest, spring cropland,
   autumn cropland and grass; the fifth groups large, long, mixed events.
@@ -649,6 +652,8 @@ VIIRS counts are never added together.
   VIIRS confidence nominal/high.
 - **ESA WorldCover 2021** (v200) land cover; **geoBoundaries** ADM0/ADM1 (Ukraine);
   Chornobyl Exclusion Zone boundary from **OpenStreetMap** (relation 3311547, © OSM contributors, ODbL).
+- **PEATMAP** peatland distribution (Xu, Morris, Liu & Holden 2018, *CATENA* 160; dataset doi:10.5518/252,
+  University of Leeds, CC BY 4.0) for peat typing.
 - **Kyiv air:** NASA FIRMS VIIRS for **Belarus** (S-NPP, NOAA-20) in addition to Ukraine; **ERA5** reanalysis
   (100 m wind, boundary-layer height, temperature, precipitation, humidity) via the **Open-Meteo** Historical Weather
   API; PM2.5/PM10 from the **CAMS** European regional air-quality ensemble via the **Open-Meteo** Air Quality API

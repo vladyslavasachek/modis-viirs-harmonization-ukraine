@@ -180,3 +180,15 @@
 - **Key diagnostic, April 2020:** UFL among the highest in the record (10 Apr 4,129; 17 Apr 3,248; NW wind from CEZ/Zhytomyr). Kyiv was the world's most polluted city on 16–17 Apr 2020 (IQAir AQI 238–380; Hromadske, Böll Stiftung), but **CAMS PM2.5 at Kyiv = 6–16 µg/m³**. CAMS misses the episode, so CAMS cannot validate the fire–air link. **Ground-station PM is needed (OpenAQ key / Kyiv city network).**
 - Case studies in the app: April 2020, Aug–Sep 2015, Oct 2019, Mar 2015.
 - App page "Kyiv air": UFL calendar, by-type and by-region charts, high-PM statistics, case studies, regression with caveats, CSV download.
+
+## Peat improvement with PEATMAP (time-boxed, done 19:50)
+- PEATMAP Europe (Xu et al. 2018, doi:10.5518/252, CC BY 4.0) downloaded, 170 MB, raw only; the `Other_European_Peatland` layer was used. `src/peat.py`.
+- New rule: an event is peat if ≥ 50% of its detections are on mapped peat (regardless of WorldCover), OR it meets the previous wetland + smouldering signature.
+- Effect:
+  - peat events 215 → **6,856**; detections 13.4 k → 34.7 k (from crop 3.6 k, forest 4.1 k, grass 5.9 k, other 7.7 k);
+  - share of harmonized activity typed peat: 1.5% → 2.5%;
+  - Belarus peat share 4% → 16% (Polesia).
+- **Before/after, Kyiv-region 2015 check: unchanged, 7.8% peat.** PEATMAP has only 8 polygons in 29–32E / 50–51.6N, and the nearest is ~70 km from the Vyshhorod fires (83 km from Kyiv). The limitation stays for the Kyiv region.
+- CEZ April 2020 unchanged (98.5% forest).
+- Kyiv high-PM/high-load days: peat share of load 0.2% → 3.2%.
+- `validation_events_worldview.csv` is protected from overwriting; event IDs are unchanged.

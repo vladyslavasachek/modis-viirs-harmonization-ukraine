@@ -74,8 +74,12 @@ def main():
         "worldview_after_burn_scar": [worldview(a, b, d + pd.Timedelta(days=3)) for a, b, d in
                                       zip(s["lat"], s["lon"], s["end"])],
         "my_label": "", "my_notes": ""})
-    out.to_csv(os.path.join(ROOT, "validation_events_worldview.csv"), index=False)
-    print("validation sample:", out["rule_label"].value_counts().to_dict())
+    vpath = os.path.join(ROOT, "validation_events_worldview.csv")
+    if os.path.exists(vpath):   # never overwrite the manually labelled file
+        print("validation CSV exists - not overwritten (event ids are deterministic)")
+    else:
+        out.to_csv(vpath, index=False)
+        print("validation sample:", out["rule_label"].value_counts().to_dict())
 
     # ---- 3. app tables
     small = e[e["n_det"] >= 2].drop(columns=["gmm_cluster"])
