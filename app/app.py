@@ -448,6 +448,125 @@ def page_burn_types():
         st.dataframe(ct, use_container_width=True)
 
 
+KY = os.path.join(lib.PROC, "kyiv")
+CASES = {"April 2020 — Chornobyl Exclusion Zone / Zhytomyr forest fires": ("2020-03-28", "2020-04-30"),
+         "Late Aug – Sep 2015 — Kyiv-region peat & grass fires": ("2015-08-15", "2015-09-30"),
+         "October 2019 — autumn field burning": ("2019-10-01", "2019-10-31"),
+         "March 2015 — spring field & grass burning": ("2015-03-01", "2015-03-31")}
+
+
+@st.cache_data
+def kyiv_tables():
+    d = pd.read_parquet(os.path.join(KY, "kyiv_daily.parquet"))
+    bt = pd.read_parquet(os.path.join(KY, "kyiv_ufl_by_type.parquet"))
+    br = pd.read_parquet(os.path.join(KY, "kyiv_ufl_by_region.parquet"))
+    return d, bt, br
+
+
+def page_kyiv_air():
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+    st.title("Kyiv air: which burning, and from where, is upwind of Kyiv?")
+    st.markdown("""
+**Upwind fire load (UFL)** for Kyiv on day *t*: sum of fire radiative power (FRP) of VIIRS detections within
+**300 km** of Kyiv whose bearing from Kyiv lies within **±30°** of the direction the ERA5 100 m wind blows from,
+weighted by distance (exp(−d/100 km)); detections 1 and 2 days earlier count with weights 0.5 and 0.25 using the
+mean wind over the transport days. Sources: Ukraine **and Belarus** (FIRMS VIIRS S-NPP, NOAA-20 after S-NPP ended);
+detections in conflict-affected oblasts excluded. All results are **associations, not causation**.""")
+    d, bt, br = kyiv_tables()
+    d["date"] = pd.to_datetime(d["date"])
+    # ---- calendar of UFL
+    w = d.assign(year=d["date"].dt.year, woy=np.minimum((d["date"].dt.dayofyear - 1) // 7, 51))
+    hm = w.pivot_table(index="year", columns="woy", values="ufl", aggfunc="sum")
+    f = go.Figure(go.Heatmap(z=np.log10(1 + hm.values), x=hm.columns + 1, y=hm.index, colorscale="Cividis",
+                             customdata=hm.values, hovertemplate="%{y} week %{x}: UFL %{customdata:,.0f}<extra></extra>",
+                             colorbar=dict(title="log10(1+UFL)")))
+    f.update_layout(height=420, title="Weekly upwind fire load for Kyiv (sum of daily UFL, FRP-weighted, MW)",
+                    yaxis=dict(autorange="reversed"), xaxis_title="week of year", margin=dict(l=10, r=10, t=40, b=10))
+    st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+    c1, c2 = st.columns(2)
+    bt2 = bt.assign(year=pd.to_datetime(bt["date"]).dt.year).drop(columns="date").groupby("year").sum()
+    bl = bt2.reset_index().melt("year", var_name="burn_type", value_name="ufl")
+    f1 = px.bar(bl, x="year", y="ufl", color="burn_type", color_discrete_map=lib.TYPE_COLORS,
+                category_orders={"burn_type": lib.TYPE_ORDER}, labels={"ufl": "annual UFL"})
+    f1.update_layout(height=360, title="Upwind load by burn type", legend=dict(orientation="h", y=-0.3),
+                     margin=dict(l=10, r=10, t=40, b=10))
+    c1.plotly_chart(f1, use_container_width=True, config=PNG_CONFIG)
+    rs = br.drop(columns="date").sum().sort_values(ascending=False)
+    rs = (rs / rs.sum()).head(10)
+    f2 = go.Figure(go.Bar(x=rs.values * 100, y=rs.index, orientation="h", marker_color="#21918c"))
+    f2.update_layout(height=360, title="Share of total upwind load by source region (2012–2026)",
+                     xaxis_title="%", yaxis=dict(autorange="reversed"), margin=dict(l=10, r=10, t=40, b=10))
+    c2.plotly_chart(f2, use_container_width=True, config=PNG_CONFIG)
+
+    # ---- high-PM days
+    st.subheader("Poor-air days and upwind burning")
+    s = pd.read_csv(os.path.join(KY, "kyiv_highpm_summary.csv"), index_col=0).iloc[:, 0]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("High-PM days with high upwind load", f"{s['share_highPM_days_with_high_ufl']:.0%}",
+              help=f"PM2.5 > 90th percentile ({s['pm25_p90_ugm3']:.1f} µg/m³); high UFL = > 90th percentile of non-zero days.")
+    c2.metric("All days with high upwind load", f"{s['share_all_days_high_ufl']:.0%}")
+    c3.metric("Ratio (lift)", f"{s['lift_highPM_vs_all']:.1f}×")
+    st.caption(f"Spring (Mar–May): {s['spring (Mar-May): share highPM days with high ufl']:.0%} of high-PM days vs "
+               f"{s['spring (Mar-May): share all days with high ufl']:.0%} of all days; summer–autumn (Jul–Oct): "
+               f"{s['summer-autumn (Jul-Oct): share highPM days with high ufl']:.0%} vs "
+               f"{s['summer-autumn (Jul-Oct): share all days with high ufl']:.0%}.")
+    c1, c2 = st.columns(2)
+    t = pd.read_csv(os.path.join(KY, "kyiv_highpm_load_by_type.csv"), index_col=0).iloc[:, 0]
+    r = pd.read_csv(os.path.join(KY, "kyiv_highpm_load_by_region.csv"), index_col=0).iloc[:, 0].head(8)
+    c1.markdown("**On high-PM & high-load days — burn types**")
+    c1.dataframe(t.rename("share of upwind load").to_frame().style.format("{:.1%}"), use_container_width=True)
+    c2.markdown("**…and source regions**")
+    c2.dataframe(r.rename("share of upwind load").to_frame().style.format("{:.1%}"), use_container_width=True)
+    st.info("**Where and what to control to protect Kyiv's air (association):** on poor-air days with high upwind "
+            "load, most of the load comes from **crop-residue / field burning**, then grass and forest fires, "
+            "mainly in **Kyiv, Cherkasy, Zhytomyr, Kirovohrad and Vinnytsia oblasts**. Belarus contributes little "
+            "on these days. Peat smouldering is underestimated by our classifier (see Burn types).")
+
+    # ---- case studies
+    st.subheader("Case studies")
+    case = st.selectbox("Episode", list(CASES))
+    a, b = CASES[case]
+    c = d[(d["date"] >= a) & (d["date"] <= b)]
+    fc = make_subplots(specs=[[{"secondary_y": True}]])
+    fc.add_trace(go.Bar(x=c["date"], y=c["ufl"], name="Upwind fire load (MW)", marker_color="#E69F00"))
+    fc.add_trace(go.Scatter(x=c["date"], y=c["pm25"], name="PM2.5, CAMS model (µg/m³)",
+                            line=dict(color="#0072B2", width=2.5)), secondary_y=True)
+    fc.update_layout(height=360, title=case, margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=1.1))
+    fc.update_yaxes(title_text="UFL (MW, distance-weighted)", secondary_y=False)
+    fc.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=True)
+    st.plotly_chart(fc, use_container_width=True, config=PNG_CONFIG)
+    if case.startswith("April 2020"):
+        st.warning("**Diagnostic case.** Upwind fire load on 10 and 17–18 April 2020 is among the highest in the "
+                   "record (wind from the north-west, i.e. from the Chornobyl Exclusion Zone / Zhytomyr fires), and "
+                   "Kyiv was reported as the most polluted city in the world on 16–17 April 2020 (IQAir US AQI "
+                   "238–380, per Hromadske and Heinrich Böll Stiftung reports). The **CAMS PM2.5 at Kyiv stays at "
+                   "6–16 µg/m³** — the model misses this smoke episode. CAMS-based statistics below therefore "
+                   "cannot validate the fire–air link; ground-station PM is needed.")
+
+    # ---- regression
+    with st.expander("Regression of daily PM2.5 anomaly on upwind fire load (CAMS — read the caveats)"):
+        v = pd.read_csv(os.path.join(KY, "kyiv_regression_validation.csv"))
+        st.dataframe(v.style.format({"test_R2": "{:.3f}", "test_RMSE": "{:.3f}", "test_RMSE_highPM_days": "{:.3f}"}),
+                     hide_index=True, use_container_width=True)
+        cf = pd.read_csv(os.path.join(KY, "kyiv_regression_coefficients.csv"), index_col=0)
+        st.dataframe(cf.style.format("{:.4f}"), use_container_width=True)
+        st.markdown("""
+Target: log PM2.5 (daily mean of hourly CAMS) minus its trailing level (median of days t−365…t−31, removing slow
+level shifts such as CAMS product changes without using future data). Controls: month, 100 m wind speed and
+direction, boundary-layer height, precipitation, Tmax, relative humidity. Chronological split: train 2013–2021,
+test 2022–2026; HAC (Newey–West, 7 lags) standard errors for the full-sample fit.
+
+**Result:** adding upwind fire load does **not** improve out-of-sample skill over the meteorology-only baseline
+(test R² 0.650 vs 0.651); only the 1-day-lag load is significant, with a small effect (+0.7% PM2.5 per doubling
+of 1+UFL). **Caveats:** (1) CAMS assimilates GFAS fire emissions derived from MODIS/VIIRS FRP — any CAMS-vs-FIRMS
+association is partly circular; (2) CAMS at Kyiv misses the April 2020 smoke episode, so a weak association here
+is not evidence that fires do not matter; (3) single grid point, no ground truth. **Ground-station validation
+(OpenAQ / Kyiv city monitoring network) is future work.**""")
+    st.download_button("⬇ Daily Kyiv table (UFL, PM2.5, meteorology) CSV",
+                       d.drop(columns=["u", "v"]).to_csv(index=False).encode(), "kyiv_daily.csv")
+
+
 def page_harmonization():
     st.title("Harmonization: MODIS → VIIRS S-NPP equivalent")
     ann = pd.read_csv(os.path.join(lib.PROC, "ukraine_annual_harmonized.csv"))
@@ -530,6 +649,11 @@ VIIRS counts are never added together.
   VIIRS confidence nominal/high.
 - **ESA WorldCover 2021** (v200) land cover; **geoBoundaries** ADM0/ADM1 (Ukraine);
   Chornobyl Exclusion Zone boundary from **OpenStreetMap** (relation 3311547, © OSM contributors, ODbL).
+- **Kyiv air:** NASA FIRMS VIIRS for **Belarus** (S-NPP, NOAA-20) in addition to Ukraine; **ERA5** reanalysis
+  (100 m wind, boundary-layer height, temperature, precipitation, humidity) via the **Open-Meteo** Historical Weather
+  API; PM2.5/PM10 from the **CAMS** European regional air-quality ensemble via the **Open-Meteo** Air Quality API
+  (model data, 2013–2026; assimilates GFAS fire emissions — partly circular with FIRMS; misses the April 2020 Kyiv
+  smoke episode). No ground-station PM was used.
 
 ### Conflict-affected oblasts
 {lib.CONFLICT_NOTE}
@@ -567,6 +691,7 @@ AOI, DOMAIN, D0, D1, BASE = sidebar()
 pg = st.navigation([st.Page(page_calendar, title="Calendar", icon="📅", default=True),
                     st.Page(page_anomalies, title="Anomalies & critical periods", icon="⚠️"),
                     st.Page(page_burn_types, title="Burn types", icon="🔥"),
+                    st.Page(page_kyiv_air, title="Kyiv air", icon="🌫️"),
                     st.Page(page_harmonization, title="Harmonization", icon="🛰️"),
                     st.Page(page_methods, title="Data, methods & limitations", icon="📖")])
 pg.run()

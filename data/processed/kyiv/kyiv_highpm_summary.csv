@@ -1,0 +1,14 @@
+,0
+pm25_p90_ugm3,23.133333333333336
+ufl_p90_of_nonzero_days,93.37419441874633
+share_all_days_high_ufl,0.06671930517173312
+share_highPM_days_with_high_ufl,0.1222879684418146
+share_highPM_days_with_any_upwind_fire,0.5069033530571992
+share_all_days_with_any_upwind_fire,0.6664034741413344
+n_days,5066.0
+n_high_pm_days,507.0
+spring (Mar-May): share highPM days with high ufl,0.30392156862745096
+spring (Mar-May): share all days with high ufl,0.1203416149068323
+summer-autumn (Jul-Oct): share highPM days with high ufl,0.35714285714285715
+summer-autumn (Jul-Oct): share all days with high ufl,0.09291521486643438
+lift_highPM_vs_all,1.8328723317344164

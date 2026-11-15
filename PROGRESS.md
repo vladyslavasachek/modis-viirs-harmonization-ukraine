@@ -160,3 +160,23 @@
   - "How does this fire compare?" (percentiles of size/extent/total FRP/peak FRP/duration among same-oblast events);
   - validation expander.
 - `data/processed/` = 39 MB.
+
+## Stage 6 — Kyiv air (done, 19:45)
+- `src/extra_regions.py` reads any `data/raw/firms_*/` folder with no code change.
+  - Belarus: 129,470 raw → 89,205 filtered detections; 26,077 events.
+  - Detections by type: grass 36%, forest 24%, crop 23%, other 12%, peat 4%.
+- `src/kyiv_air.py`, daily upwind fire load (UFL):
+  - Inputs: S-NPP stream within 300 km of Kyiv; bearing within ±30° of the ERA5 100 m wind-from direction; FRP × exp(−d/100 km).
+  - Lags 0/1/2 with weights 1/0.5/0.25, using the mean transport-window wind.
+  - Split by type and region; conflict-flagged detections excluded.
+  - 340 k detections within 300 km; Belarus ≈ 3.6% of distance-weighted FRP.
+- PM: OpenAQ needs a key (401 without), so the **CAMS** series via Open-Meteo is used: complete hourly 2013-01-01 → 2026-11-14. Circularity caveat stated.
+- **Regression** (log PM2.5 minus trailing level; controls: month, wind speed/dir, BLH, precip, Tmax, RH):
+  - Chronological test 2022–26: meteorology-only R² 0.651 vs + UFL 0.650. **No added skill.**
+  - Full-sample HAC: lag-1 UFL +0.67% PM per doubling of (1+UFL), p = 0.009; lag 0/2 not significant.
+- **High-PM days** (> p90 = 23.1 µg/m³): 12.2% have high UFL vs 6.7% of all days (lift 1.8). Spring 30% vs 12%; Jul–Oct 36% vs 9%.
+  - Load on those days by type: crop 65%, grass 15%, forest 10.5%, other 9%, peat 0.2%.
+  - By region: Kyiv obl 34%, Cherkasy 15%, Zhytomyr 12%, Kirovohrad 10%, Vinnytsia 9%.
+- **Key diagnostic, April 2020:** UFL among the highest in the record (10 Apr 4,129; 17 Apr 3,248; NW wind from CEZ/Zhytomyr). Kyiv was the world's most polluted city on 16–17 Apr 2020 (IQAir AQI 238–380; Hromadske, Böll Stiftung), but **CAMS PM2.5 at Kyiv = 6–16 µg/m³**. CAMS misses the episode, so CAMS cannot validate the fire–air link. **Ground-station PM is needed (OpenAQ key / Kyiv city network).**
+- Case studies in the app: April 2020, Aug–Sep 2015, Oct 2019, Mar 2015.
+- App page "Kyiv air": UFL calendar, by-type and by-region charts, high-PM statistics, case studies, regression with caveats, CSV download.
