@@ -1,0 +1,5 @@
+pm_series,model,n_train,n_test,test_R2,test_RMSE,test_RMSE_highPM,n_test_highPM
+OpenAQ stations (low-cost),meteorology only,541,500,0.30530948528239776,0.6761978811922217,0.5262964937999661,50
+OpenAQ stations (low-cost),meteorology + upwind fire load,541,500,0.32231095331765447,0.6678721811975942,0.5473269804163429,50
+"CAMS model, same days",meteorology only,541,500,0.6195538211536828,0.3063858038348213,0.3630249868238262,51
+"CAMS model, same days",meteorology + upwind fire load,541,500,0.6204221214876946,0.30603596872234196,0.3620716920866377,51

@@ -192,3 +192,19 @@
 - CEZ April 2020 unchanged (98.5% forest). GMM agreement now 84.4% (ARI 0.44, NMI 0.49).
 - Kyiv high-PM/high-load days: peat share of load 0.2% → 3.2%.
 - `validation_events_worldview.csv` is protected from overwriting; event IDs are unchanged.
+
+## Stage 6b — OpenAQ ground stations (done, 19:58)
+- OpenAQ v3 (key in .env): only **6 PM locations within 25 km of Kyiv, all low-cost AirGradient sensors**, earliest Sep 2023. **No coverage of 2015 or April 2020.** Daily values cached in `data/processed/kyiv/openaq_kyiv_daily.csv`.
+- Station composite (daily median of sensors with ≥ 75% hourly coverage): 1,041 days, Sep 2023 → Nov 2026, median 2 sensors/day. Spearman vs CAMS 0.65.
+- Stations, chronological split (train < Jul 2025):
+  - meteorology-only R² 0.305 → +UFL 0.322; RMSE 0.676 → 0.668;
+  - high-PM-day RMSE **not** improved (0.526 → 0.547);
+  - same-day UFL +5.6% PM per doubling (p = 0.0004);
+  - lift 2.2× (CAMS same days 1.5×).
+- Sep 2024 Kyiv-region fires: stations 30–50 µg/m³ vs CAMS 9–21, so CAMS underestimates smoke again.
+- The highest station days (Jan 2026) had no upwind fire load.
+- Kyiv air page reframed:
+  - main result = burn-type/region breakdown of upwind load;
+  - explicit "with CAMS the fire→PM link is not validated";
+  - stations = partial, short-period evidence;
+  - regression details moved to an expander.

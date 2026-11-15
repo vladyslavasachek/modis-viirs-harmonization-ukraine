@@ -475,7 +475,11 @@ def page_kyiv_air():
 **300 km** of Kyiv whose bearing from Kyiv lies within **±30°** of the direction the ERA5 100 m wind blows from,
 weighted by distance (exp(−d/100 km)); detections 1 and 2 days earlier count with weights 0.5 and 0.25 using the
 mean wind over the transport days. Sources: Ukraine **and Belarus** (FIRMS VIIRS S-NPP, NOAA-20 after S-NPP ended);
-detections in conflict-affected oblasts excluded. All results are **associations, not causation**.""")
+detections in conflict-affected oblasts excluded. All results are **associations, not causation**.
+
+**Main result** = *which burning, and from where, is upwind of Kyiv* (breakdown of upwind fire load by burn type and
+source region, below). **The fire → PM link itself is not validated:** the long CAMS model series cannot validate it
+(it misses the April 2020 smoke episode), and ground stations exist only from Sept 2023 (low-cost sensors).""")
     d, bt, br = kyiv_tables()
     d["date"] = pd.to_datetime(d["date"])
     # ---- calendar of UFL
@@ -503,7 +507,7 @@ detections in conflict-affected oblasts excluded. All results are **associations
     c2.plotly_chart(f2, use_container_width=True, config=PNG_CONFIG)
 
     # ---- high-PM days
-    st.subheader("Poor-air days and upwind burning")
+    st.subheader("Main result: what burns upwind of Kyiv on poor-air days")
     s = pd.read_csv(os.path.join(KY, "kyiv_highpm_summary.csv"), index_col=0).iloc[:, 0]
     c1, c2, c3 = st.columns(3)
     c1.metric("High-PM days with high upwind load", f"{s['share_highPM_days_with_high_ufl']:.0%}",
@@ -521,6 +525,8 @@ detections in conflict-affected oblasts excluded. All results are **associations
     c1.dataframe(t.rename("share of upwind load").to_frame().style.format("{:.1%}"), use_container_width=True)
     c2.markdown("**…and source regions**")
     c2.dataframe(r.rename("share of upwind load").to_frame().style.format("{:.1%}"), use_container_width=True)
+    st.caption("Poor-air days here are defined with the CAMS model PM2.5 (2013–2026, the only long series); "
+               "with the 2023–2026 ground stations the lift is 2.2× (below).")
     st.info("**Where and what to control to protect Kyiv's air (association):** on poor-air days with high upwind "
             "load, most of the load comes from **crop-residue / field burning**, then grass and forest fires, "
             "mainly in **Kyiv, Cherkasy, Zhytomyr, Kirovohrad and Vinnytsia oblasts**. Belarus contributes little "
@@ -547,25 +553,51 @@ detections in conflict-affected oblasts excluded. All results are **associations
                    "6–16 µg/m³** — the model misses this smoke episode. CAMS-based statistics below therefore "
                    "cannot validate the fire–air link; ground-station PM is needed.")
 
-    # ---- regression
-    with st.expander("Regression of daily PM2.5 anomaly on upwind fire load (CAMS — read the caveats)"):
+    # ---- validation of the fire -> PM link
+    st.subheader("Is the fire → PM link validated?")
+    st.error("**With CAMS: no.** CAMS PM2.5 at Kyiv misses the best-documented smoke episode (April 2020) and "
+             "CAMS assimilates satellite-FRP-based fire emissions (GFAS), so any CAMS–FIRMS association is partly "
+             "circular. Adding upwind fire load to a meteorology-only model gives **no out-of-sample gain** "
+             "(test 2022–2026: R² 0.651 → 0.650).")
+    sv = pd.read_csv(os.path.join(KY, "kyiv_station_regression_validation.csv"))
+    sh = pd.read_csv(os.path.join(KY, "kyiv_station_highpm_summary.csv"))
+    st.warning("**With ground stations: partial, short-period evidence only.** OpenAQ has PM2.5 for Kyiv only from "
+               "**Sept 2023**, from low-cost AirGradient sensors (median 2 per day; no coverage of 2015 or 2020). "
+               "On 1,041 days (train to Jun 2025, test Jul 2025 – Nov 2026), adding upwind fire load raises test "
+               f"R² from {sv.iloc[0]['test_R2']:.3f} to {sv.iloc[1]['test_R2']:.3f} (RMSE {sv.iloc[0]['test_RMSE']:.3f} → "
+               f"{sv.iloc[1]['test_RMSE']:.3f}) but does **not** improve errors on high-PM days. High-PM station days "
+               f"have high upwind load {sh.iloc[0]['share_highPM_with_highUFL']:.0%} of the time vs "
+               f"{sh.iloc[0]['share_all_highUFL']:.0%} of all days (lift {sh.iloc[0]['lift']:.1f}×; CAMS on the same "
+               f"days: {sh.iloc[1]['lift']:.1f}×). The highest station days (winter 2025/26) had **no** upwind fire "
+               "load — fires are one source among several.")
+    sd = pd.read_parquet(os.path.join(KY, "kyiv_station_daily.parquet"))
+    sd = sd[(sd["date"] >= "2024-08-20") & (sd["date"] <= "2024-09-25")]
+    fs = make_subplots(specs=[[{"secondary_y": True}]])
+    fs.add_trace(go.Bar(x=sd["date"], y=sd["ufl"], name="Upwind fire load (MW)", marker_color="#E69F00"))
+    fs.add_trace(go.Scatter(x=sd["date"], y=sd["pm25_station"], name="PM2.5, OpenAQ stations (median)",
+                            line=dict(color="#CC79A7", width=2.5)), secondary_y=True)
+    fs.add_trace(go.Scatter(x=sd["date"], y=sd["pm25"], name="PM2.5, CAMS model",
+                            line=dict(color="#0072B2", width=2, dash="dot")), secondary_y=True)
+    fs.update_layout(height=340, title="Late Aug – Sep 2024 (Kyiv-region peat/field fires): stations vs CAMS",
+                     margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=1.12))
+    fs.update_yaxes(title_text="UFL (MW)", secondary_y=False)
+    fs.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=True)
+    st.plotly_chart(fs, use_container_width=True, config=PNG_CONFIG)
+    st.caption("Stations read 30–50 µg/m³ while CAMS stays at 9–21 µg/m³ during this smoke period — again CAMS "
+               "underestimates smoke. Low-cost sensors are uncorrected for humidity; absolute values are uncertain.")
+    with st.expander("Regression details (CAMS 2013–2026 and stations 2023–2026)"):
         v = pd.read_csv(os.path.join(KY, "kyiv_regression_validation.csv"))
-        st.dataframe(v.style.format({"test_R2": "{:.3f}", "test_RMSE": "{:.3f}", "test_RMSE_highPM_days": "{:.3f}"}),
-                     hide_index=True, use_container_width=True)
-        cf = pd.read_csv(os.path.join(KY, "kyiv_regression_coefficients.csv"), index_col=0)
-        st.dataframe(cf.style.format("{:.4f}"), use_container_width=True)
-        st.markdown("""
-Target: log PM2.5 (daily mean of hourly CAMS) minus its trailing level (median of days t−365…t−31, removing slow
-level shifts such as CAMS product changes without using future data). Controls: month, 100 m wind speed and
-direction, boundary-layer height, precipitation, Tmax, relative humidity. Chronological split: train 2013–2021,
-test 2022–2026; HAC (Newey–West, 7 lags) standard errors for the full-sample fit.
-
-**Result:** adding upwind fire load does **not** improve out-of-sample skill over the meteorology-only baseline
-(test R² 0.650 vs 0.651); only the 1-day-lag load is significant, with a small effect (+0.7% PM2.5 per doubling
-of 1+UFL). **Caveats:** (1) CAMS assimilates GFAS fire emissions derived from MODIS/VIIRS FRP — any CAMS-vs-FIRMS
-association is partly circular; (2) CAMS at Kyiv misses the April 2020 smoke episode, so a weak association here
-is not evidence that fires do not matter; (3) single grid point, no ground truth. **Ground-station validation
-(OpenAQ / Kyiv city monitoring network) is future work.**""")
+        st.markdown("**CAMS, chronological split train 2013–2021 / test 2022–2026** (target: log PM2.5 minus its "
+                    "trailing level; controls: month, 100 m wind speed & direction, boundary-layer height, "
+                    "precipitation, Tmax, relative humidity)")
+        st.dataframe(v, hide_index=True, use_container_width=True)
+        st.markdown("**Stations vs CAMS on the same 1,041 days** (log PM2.5, month effects, same controls; "
+                    "train < Jul 2025)")
+        st.dataframe(sv, hide_index=True, use_container_width=True)
+        st.dataframe(pd.read_csv(os.path.join(KY, "kyiv_station_regression_coefficients.csv"), index_col=0),
+                     use_container_width=True)
+        st.caption("Coefficients are associations from short, noisy series; HAC (Newey–West) standard errors. "
+                   "They are not the headline result.")
     st.download_button("⬇ Daily Kyiv table (UFL, PM2.5, meteorology) CSV",
                        d.drop(columns=["u", "v"]).to_csv(index=False).encode(), "kyiv_daily.csv")
 
@@ -658,7 +690,7 @@ VIIRS counts are never added together.
   (100 m wind, boundary-layer height, temperature, precipitation, humidity) via the **Open-Meteo** Historical Weather
   API; PM2.5/PM10 from the **CAMS** European regional air-quality ensemble via the **Open-Meteo** Air Quality API
   (model data, 2013–2026; assimilates GFAS fire emissions — partly circular with FIRMS; misses the April 2020 Kyiv
-  smoke episode). No ground-station PM was used.
+  smoke episode); ground-station PM2.5 from **OpenAQ** (low-cost AirGradient sensors in Kyiv, Sept 2023 – Nov 2026).
 
 ### Conflict-affected oblasts
 {lib.CONFLICT_NOTE}
