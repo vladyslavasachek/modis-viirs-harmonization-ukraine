@@ -116,8 +116,8 @@ def page_calendar():
                              fillcolor="rgba(33,145,140,0.4)", hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=x, y=wk["point"], line=dict(color="#21918c", width=1.4), name="Harmonized",
                              text=hover_text(wk), hovertemplate="%{x|%d %b %Y}: %{text}<extra></extra>"))
-    fig.update_layout(height=320, margin=dict(l=10, r=10, t=30, b=10), yaxis_title=f"{UNIT} / week",
-                      title="Weekly harmonized activity", legend=dict(orientation="h", y=1.12))
+    fig.update_layout(height=360, margin=dict(l=10, r=10, t=50, b=70), yaxis_title=f"{UNIT} / week",
+                      title="Weekly harmonized activity", legend=dict(orientation="h", yanchor="top", y=-0.18, x=0))
     st.plotly_chart(fig, width="stretch", config=PNG_CONFIG)
 
     # ---- heatmaps
@@ -386,7 +386,7 @@ def page_burn_types():
     f = px.bar(m, x="month", y="weight", color="burn_type", color_discrete_map=cmap,
                category_orders={"burn_type": lib.TYPE_ORDER}, labels={"weight": f"{UNIT} / month", "burn_type": "type"})
     f.update_layout(height=360, title="Monthly harmonized activity by burn type", bargap=0,
-                    margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=-0.2))
+                    margin=dict(l=10, r=10, t=50, b=70), legend=dict(orientation="h", yanchor="top", y=-0.18, x=0))
     st.plotly_chart(f, width="stretch", config=PNG_CONFIG)
     c1, c2 = st.columns(2)
     y = det.groupby(["year", "burn_type"], observed=True)["weight"].sum().reset_index()
@@ -530,8 +530,8 @@ source region, below). **The fire → PM link itself is not validated:** the lon
     bl = bt2.reset_index().melt("year", var_name="burn_type", value_name="ufl")
     f1 = px.bar(bl, x="year", y="ufl", color="burn_type", color_discrete_map=lib.TYPE_COLORS,
                 category_orders={"burn_type": lib.TYPE_ORDER}, labels={"ufl": "annual UFL"})
-    f1.update_layout(height=360, title="Upwind load by burn type", legend=dict(orientation="h", y=-0.3),
-                     margin=dict(l=10, r=10, t=40, b=10))
+    f1.update_layout(title="Upwind load by burn type", legend=dict(orientation="h", yanchor="top", y=-0.18, x=0),
+                     margin=dict(l=10, r=10, t=50, b=110), height=420)
     c1.plotly_chart(f1, width="stretch", config=PNG_CONFIG)
     rs = br.drop(columns="date").sum().sort_values(ascending=False)
     rs = (rs / rs.sum()).head(10)
@@ -575,7 +575,7 @@ source region, below). **The fire → PM link itself is not validated:** the lon
     fc.add_trace(go.Bar(x=c["date"], y=c["ufl"], name="Upwind fire load (MW)", marker_color="#E69F00"))
     fc.add_trace(go.Scatter(x=c["date"], y=c["pm25"], name="PM2.5, CAMS model (µg/m³)",
                             line=dict(color="#0072B2", width=2.5)), secondary_y=True)
-    fc.update_layout(height=360, title=case, margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=1.1))
+    fc.update_layout(height=360, title=case, margin=dict(l=10, r=10, t=50, b=70), legend=dict(orientation="h", yanchor="top", y=-0.18, x=0))
     fc.update_yaxes(title_text="UFL (MW, distance-weighted)", secondary_y=False)
     fc.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=True)
     st.plotly_chart(fc, width="stretch", config=PNG_CONFIG)
@@ -613,7 +613,7 @@ source region, below). **The fire → PM link itself is not validated:** the lon
     fs.add_trace(go.Scatter(x=sd["date"], y=sd["pm25"], name="PM2.5, CAMS model",
                             line=dict(color="#0072B2", width=2, dash="dot")), secondary_y=True)
     fs.update_layout(height=340, title="Late Aug – Sep 2024 (Kyiv-region peat/field fires): stations vs CAMS",
-                     margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h", y=1.12))
+                     margin=dict(l=10, r=10, t=50, b=70), legend=dict(orientation="h", yanchor="top", y=-0.18, x=0))
     fs.update_yaxes(title_text="UFL (MW)", secondary_y=False)
     fs.update_yaxes(title_text="PM2.5 (µg/m³)", secondary_y=True)
     st.plotly_chart(fs, width="stretch", config=PNG_CONFIG)

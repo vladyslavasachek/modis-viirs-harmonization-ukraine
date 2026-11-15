@@ -1,8 +1,8 @@
 # Harmonized burning-activity calendar for Ukraine (MODIS + VIIRS)
 
 NASA Space Apps Challenge 2026 — *Harmonization of MODIS and VIIRS Hot Spots*.
-Full README (problem, data, method, validation, results, limitations, how to run, attribution) is completed in
-Stage 8; see `PROGRESS.md` for the full log.
+The full README (problem, data, method, validation, results, limitations, how to run, attribution) is completed
+in Stage 8.
 
 ## Burn-type validation (manual Worldview check)
 
