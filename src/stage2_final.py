@@ -232,12 +232,9 @@ def main():
     ax.text(2001.5, ymax * 0.98, "Terra-only\nlower confidence", ha="center", va="top", fontsize=8)
     ax.axvline(2011.5, color="k", lw=0.6, ls="--")
     ax.text(2011.6, ymax * 0.98, "S-NPP observations from 2012", fontsize=8, va="top")
-    ax.set_ylabel("hot-spot detections / year (S-NPP-equivalent)")
-    ax.set_title("Ukraine: the 2012 sensor jump removed by harmonization\n"
-                 "2001–2011: MODIS-based estimate, LOYO-calibrated 80/95% intervals · 2012+: S-NPP observed "
-                 "(outage weeks filled with calibrated NOAA-20) · "
-                 "all of Ukraine (conflict-zone detections included)", fontsize=10)
-    ax.legend(fontsize=8, loc="upper right", framealpha=0.95)
+    ax.set_ylabel("VIIRS-equivalent hot spots / year")
+    ax.set_title("Ukraine: the 2012 sensor jump removed by harmonization", fontsize=13)
+    ax.legend(fontsize=9, loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=3, frameon=False)
     ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(os.path.join(FIG, "02_harmonized_vs_raw_ukraine.png"), dpi=150)

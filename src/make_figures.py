@@ -162,7 +162,40 @@ def kyiv_sources():
     save(fig, "08_kyiv_upwind_sources.png")
 
 
+def harmonized_vs_raw():
+    """Figure 02 (also drawn in stage2_final.py): raw MODIS, raw S-NPP and harmonized annual series, all of Ukraine."""
+    a = pd.read_csv(os.path.join(PROC, "ukraine_annual_harmonized.csv"), index_col=0).loc[2001:2025]
+    lp = pd.read_parquet(os.path.join(PROC, "loyo_ukr_week.parquet"))
+    lpa = lp[lp["model"] == "B1"].groupby("year")["pred"].sum()
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    ax.axvspan(2000.5, 2002.5, color="#eeeeee", zorder=0)
+    m = a.loc[:2011]
+    ax.fill_between(m.index, m["lo95"], m["hi95"], color="#1f78b4", alpha=0.15, label="95% interval")
+    ax.fill_between(m.index, m["lo80"], m["hi80"], color="#1f78b4", alpha=0.3, label="80% interval")
+    ax.plot(a.index, a["Terra"] + a["Aqua"], color="#555555", marker="o", ms=3, label="Raw MODIS detections (Terra+Aqua)")
+    sn = a.loc[2012:]
+    ax.plot(sn.index, sn["SNPP"], color="#d95f02", marker="o", ms=3, lw=1, label="Raw VIIRS S-NPP detections")
+    ax.plot(a.index, a["point"], color="#1f78b4", lw=2.4, label="Harmonized (S-NPP-equivalent)")
+    ax.plot(lpa.index, lpa.values, color="#1f78b4", ls=":", lw=1.6, label="Leave-one-year-out check (2012–21)")
+    ax.axvline(2011.5, color="k", lw=0.6, ls="--")
+    ax.set_ylim(0, 205000)
+    ax.text(2001.5, 198000, "Terra only", ha="center", va="top", fontsize=9)
+    ax.text(2011.7, 198000, "VIIRS S-NPP from 2012", fontsize=9, va="top")
+    ax.set_ylabel(f"{UNIT} / year")
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v / 1000:.0f}k"))
+    ax.set_title("Ukraine: the 2012 sensor jump removed by harmonization", fontsize=13)
+    ax.legend(fontsize=9, loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=3, frameon=False)
+    ax.grid(alpha=0.3)
+    fig.text(0.01, 0.005, "2001–2011: MODIS-based estimate with calibrated 80/95% intervals · 2012+: S-NPP observed "
+             "(outage weeks: calibrated NOAA-20) · all of Ukraine", fontsize=8, color="#555555")
+    fig.tight_layout(rect=(0, 0.03, 1, 1))
+    fig.savefig(os.path.join(FIG, "02_harmonized_vs_raw_ukraine.png"), dpi=150)
+    plt.close(fig)
+    print("saved 02")
+
+
 if __name__ == "__main__":
+    harmonized_vs_raw()
     validation_table()
     w = ukraine_weekly()
     calendar_heatmap(w)
