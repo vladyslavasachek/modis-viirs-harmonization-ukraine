@@ -424,8 +424,7 @@ def page_burn_types():
                 f"tree {e1['lc_tree']:.0%}, wetland {e1['lc_wetland']:.0%}  \n**Night fraction:** "
                 f"{e1['night_frac']:.0%}  \nCompared with {nref:,} events (≥ 2 detections, 2012–2026) in "
                 f"{e1['oblast']}.")
-    from events_validation import worldview
-    c2.markdown(f"[Open in NASA Worldview]({worldview(float(e1['lat']), float(e1['lon']), e1['start'])})")
+    c2.markdown(f"[Open in NASA Worldview]({lib.worldview(float(e1['lat']), float(e1['lon']), e1['start'])})")
 
     # validation
     with st.expander("How the labels were validated", expanded=False):

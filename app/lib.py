@@ -297,3 +297,15 @@ def event_percentiles(ev: pd.Series) -> pd.DataFrame:
         rows.append({"metric": label, "this event": f"{v:,.1f}{unit}", "oblast median": f"{np.median(r):,.1f}{unit}",
                      "percentile in oblast": pct})
     return pd.DataFrame(rows), len(ref)
+
+
+WV_LAYERS = ("Coastlines_15m,Reference_Features_15m(hidden),Reference_Labels_15m(hidden),"
+             "VIIRS_SNPP_Thermal_Anomalies_375m_All,VIIRS_NOAA20_Thermal_Anomalies_375m_All,"
+             "MODIS_Combined_Thermal_Anomalies_All,MODIS_Aqua_CorrectedReflectance_TrueColor,"
+             "MODIS_Terra_CorrectedReflectance_TrueColor")
+
+
+def worldview(lat, lon, date, pad=0.25):
+    """NASA Worldview link (same layers as src/events_validation.py)."""
+    return (f"https://worldview.earthdata.nasa.gov/?v={lon - pad:.3f},{lat - pad * 0.65:.3f},{lon + pad:.3f},"
+            f"{lat + pad * 0.65:.3f}&l={WV_LAYERS}&t={date:%Y-%m-%d}-T12:00:00Z")
