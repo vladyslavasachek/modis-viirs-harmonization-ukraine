@@ -192,7 +192,7 @@ def main():
         t[c] = t[c].astype("int16")
     t = t.drop(columns=["outage", "m_frp", "mT_frp", "mx_frp", "mTx_frp"] + LC)
     t["month"] = t["month"].astype("int8")
-    t.to_parquet(os.path.join(PROC, "harmonized_cells.parquet"), index=False, compression="zstd")
+    t.to_parquet(os.path.join(PROC, "harmonized_cells.parquet"), index=False, compression="zstd", compression_level=19)
     n20q = {k: float(np.quantile(n20_boot, q) / n20_ratio) for k, q in QS.items()}
     np.savez_compressed(os.path.join(PROC, "harmonization_params.npz"), R_ta=R["TA"], R_t=R["T"],
                         n20_boot=n20_boot, n20_ratio=n20_ratio, res=RES)

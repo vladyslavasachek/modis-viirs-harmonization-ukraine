@@ -10,6 +10,7 @@ import shapely
 import streamlit as st
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 import lib  # noqa: E402
 from lib import PNG_CONFIG, UNIT  # noqa: E402
 
@@ -89,8 +90,11 @@ def page_calendar():
                    "Years before 2012 are MODIS-based estimates.")
     c3.metric("Percentile vs 2001–2025", f"{k['percentile']:.0f}th")
     c4.metric("Ratio to median", f"{k['value'] / k['median']:.2f}×" if k["median"] > 0 else "n/a")
-    st.caption(f"Current value 95% interval {k['value_lo']:,.0f}–{k['value_hi']:,.0f}; median 95% interval "
-               f"{k['median_lo']:,.0f}–{k['median_hi']:,.0f}. The latest days come from near-real-time (NRT) data.")
+    st.caption(f"Same calendar window ({k['start']:%d %b}–{k['end']:%d %b}) in every baseline year 2001–2025. "
+               f"Current value 95% interval {k['value_lo']:,.0f}–{k['value_hi']:,.0f}; median 95% interval "
+               f"{k['median_lo']:,.0f}–{k['median_hi']:,.0f}. **The current month is near-real-time (NRT) data** "
+               "(NOAA-20 calibrated to S-NPP after S-NPP ended on 2 Nov 2026); NRT can differ slightly from the "
+               "later standard archive. Baseline years before 2012 are MODIS-based estimates.")
 
     # ---- weekly series with intervals
     fig = go.Figure()
@@ -148,6 +152,19 @@ def page_calendar():
                     f"{t['rel']:+.1f}%/yr of the median); Mann–Kendall τ = {t['tau']:.2f}, p = {t['p']:.3f}. "
                     "Descriptive only: no correction for autocorrelation, and pre-2012 values are model estimates "
                     "(their intervals are not propagated into the slope CI).")
+    with st.expander("Trend robustness: harmonized vs single-sensor raw series", expanded=True):
+        yr_all = lib.aggregate(lib.aoi_weekly(tuple(sorted(map(int, aoi["cells"]))), domain), ["year"])
+        rob = lib.trend_robustness(det, yr_all)
+        signs = np.sign(rob["Sen's slope / yr"].iloc[:3].values)
+        st.dataframe(rob.style.format({"Sen's slope / yr": "{:+,.0f}", "% of median / yr": "{:+.1f}%",
+                                       "Mann–Kendall τ": "{:.2f}", "p": "{:.3f}"}),
+                     hide_index=True, use_container_width=True)
+        if len(set(signs[signs != 0])) > 1:
+            st.warning("The three series disagree in the sign of the trend; treat the harmonized trend as not robust.")
+        else:
+            st.caption("All three series agree in sign. Raw single-sensor slopes are in that sensor's own detection "
+                       "units; compare signs and % of median per year, not absolute values. Fixed periods, "
+                       "complete years, independent of the date-range filter.")
     fa.update_layout(height=330, title="Annual harmonized activity (error bars: 95% interval)",
                      yaxis_title=f"{UNIT} / year", margin=dict(l=10, r=10, t=40, b=10))
     st.plotly_chart(fa, use_container_width=True, config=PNG_CONFIG)
@@ -207,8 +224,106 @@ def draw_map():
 
 
 def page_anomalies():
+    import calendar_stats as cs
+    aoi, domain = AOI, DOMAIN
     st.title("Anomalies & critical periods")
-    st.info("Coming in Stage 3.")
+    st.caption(f"{aoi['name']} · {lib.DOMAIN_LABELS[domain]} · unit: **{UNIT}**. Baselines are complete years "
+               "2001–2025 and always exclude the year being evaluated. Anomalies are percentiles, not z-scores "
+               "(the data are skewed and zero-inflated). Descriptive statistics only — no forecasts.")
+    if len(aoi["cells"]) == 0:
+        st.warning("Empty AOI.")
+        return
+    wk = lib.aoi_weekly(tuple(sorted(map(int, aoi["cells"]))), domain)
+    mon = lib.aggregate(wk, ["year", "month"])
+    years = sorted(wk["year"].unique())
+    ysel = st.selectbox("Year to evaluate", years[::-1], index=years[::-1].index(2025) if 2025 in years else 0)
+
+    # ---- climatology with selected year
+    cl = cs.climatology(wk, "woy", exclude_year=ysel)
+    cur = wk[wk["year"] == ysel].set_index("woy").reindex(range(52))
+    x = np.arange(1, 53)
+    f = go.Figure()
+    f.add_trace(go.Scatter(x=x, y=cl["p90"], mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip"))
+    f.add_trace(go.Scatter(x=x, y=cl["p10"], mode="lines", line=dict(width=0), fill="tonexty",
+                           fillcolor="rgba(120,120,120,0.3)", name="10–90% range (baseline)"))
+    f.add_trace(go.Scatter(x=x, y=cl["median"], mode="lines", line=dict(color="#808080", dash="dash"),
+                           name="Baseline median"))
+    est = cur["share_estimated"].fillna(0) > 0.001
+    f.add_trace(go.Scatter(x=x, y=cur["point"], mode="lines+markers", line=dict(color="#21918c", width=2.5),
+                           marker=dict(size=5), name=str(ysel),
+                           error_y=dict(type="data", symmetric=False, visible=bool(est.any()),
+                                        array=(cur["hi95"] - cur["point"]).where(est, 0),
+                                        arrayminus=(cur["point"] - cur["lo95"]).where(est, 0)),
+                           text=lib.fmt_interval(cur.fillna(0)), hovertemplate="week %{x}: %{text}<extra></extra>"))
+    f.update_layout(height=360, title=f"Weekly activity in {ysel} vs climatology of the other years",
+                    xaxis_title="week of year", yaxis_title=f"{UNIT} / week", margin=dict(l=10, r=10, t=40, b=10))
+    st.plotly_chart(f, use_container_width=True, config=PNG_CONFIG)
+
+    # ---- percentile anomalies
+    st.subheader("Percentile anomalies")
+    gran = st.radio("Resolution", ["Month", "Week"], horizontal=True)
+    period = "month" if gran == "Month" else "woy"
+    src = mon if period == "month" else wk
+    P, V = cs.percentile_anomalies(src, period)
+    xs = ([pd.Timestamp(2000, m, 1).strftime("%b") for m in P.columns] if period == "month"
+          else [c + 1 for c in P.columns])
+    txt = np.vectorize(lambda v, p: f"{v:,.0f} hot spots · {p:.0f}th percentile")(V.values, P.values)
+    fh = go.Figure(go.Heatmap(z=P.values, x=xs, y=P.index, colorscale="RdBu_r", zmid=50, zmin=0, zmax=100,
+                              text=txt, hovertemplate="%{y} %{x}: %{text}<extra></extra>",
+                              colorbar=dict(title="percentile")))
+    fh.update_layout(height=520, title=f"{gran}ly activity as percentile of the same {gran.lower()} in other years "
+                     "(blue = below, red = above median)", yaxis=dict(autorange="reversed"),
+                     margin=dict(l=10, r=10, t=40, b=10))
+    st.plotly_chart(fh, use_container_width=True, config=PNG_CONFIG)
+    st.caption("Percentiles are computed against complete baseline years 2001–2025 without the evaluated year; for "
+               "2000 and 2026 (partial) only the covered weeks are meaningful. Pre-2012 values are MODIS-based "
+               "estimates; their intervals are shown in the Calendar page hover.")
+
+    # ---- critical periods
+    st.subheader("Critical periods")
+    cp, thr = cs.critical_periods(wk)
+    fc = go.Figure(go.Bar(x=cp["woy"] + 1, y=cp["prob"] * 100,
+                          marker_color=np.where(cp["critical"], "#b2182b", "#92c5de"),
+                          error_y=dict(type="data", symmetric=False, array=(cp["hi95"] - cp["prob"]) * 100,
+                                       arrayminus=(cp["prob"] - cp["lo95"]) * 100, color="#555"),
+                          hovertemplate="week %{x}: %{y:.0f}%<extra></extra>"))
+    fc.add_hline(y=50, line_dash="dash", line_color="#444", annotation_text="50%")
+    fc.update_layout(height=330, xaxis_title="week of year", yaxis_title="probability (%)",
+                     title=f"Probability that a week exceeds the baseline 75th percentile of weekly activity "
+                           f"(≈{thr:,.0f} {UNIT}/week); red = critical (>50%)", margin=dict(l=10, r=10, t=40, b=10))
+    st.plotly_chart(fc, use_container_width=True, config=PNG_CONFIG)
+    crit = cp.loc[cp["critical"], "woy"].values
+    if len(crit):
+        dates = [(pd.Timestamp(2001, 1, 1) + pd.Timedelta(days=int(w) * 7)).strftime("%d %b") for w in crit]
+        st.markdown("**Critical weeks:** " + ", ".join(f"week {w + 1} (from {d})" for w, d in zip(crit, dates)))
+    st.caption("The 75th-percentile threshold is pooled over all weeks of the baseline years (computed without the "
+               "evaluated year); a per-week threshold would be exceeded in ~25% of years by construction. "
+               "95% intervals: bootstrap over years. For sparse AOIs the threshold can be 0, i.e. 'any activity'.")
+
+    # ---- season metrics
+    st.subheader("Season timing")
+    split = cs.season_split(wk)
+    sm = cs.season_metrics(wk[wk["year"].between(2001, 2025)], split=split)
+    st.caption(("Bimodal season detected: spring / summer-autumn split at week "
+                f"{split + 1} (~{(pd.Timestamp(2001, 1, 1) + pd.Timedelta(days=split * 7)):%d %b}).")
+               if split is not None else "No clear bimodal season; metrics computed over the whole year.")
+    fs = go.Figure()
+    colors = {"spring": "#1b9e77", "summer-autumn": "#d95f02", "year": "#7570b3"}
+    for sea, g in sm.groupby("season"):
+        c = colors.get(sea, "#333")
+        fs.add_trace(go.Scatter(x=g["year"], y=g["peak_doy"], mode="markers", marker=dict(color=c, size=8),
+                                name=f"{sea}: peak",
+                                error_y=dict(type="data", symmetric=False, array=g["end_doy"] - g["peak_doy"],
+                                             arrayminus=g["peak_doy"] - g["onset_doy"], color=c),
+                                hovertemplate="%{x}: peak day %{y}<extra></extra>"))
+    fs.update_layout(height=380, yaxis_title="day of year (bars: onset 10% → end 90%)",
+                     title="Season onset, peak and end by year", margin=dict(l=10, r=10, t=40, b=10))
+    st.plotly_chart(fs, use_container_width=True, config=PNG_CONFIG)
+    st.dataframe(sm.groupby("season")[["onset_doy", "peak_doy", "end_doy", "length_days"]].median()
+                 .rename(columns=lambda c: "median " + c.replace("_", " ")), use_container_width=True)
+    c1, c2 = st.columns(2)
+    c1.download_button("⬇ Percentile anomalies CSV", P.round(1).to_csv().encode(), f"anomaly_percentiles_{period}.csv")
+    c2.download_button("⬇ Season metrics CSV", sm.to_csv(index=False).encode(), "season_metrics.csv")
 
 
 def page_harmonization():

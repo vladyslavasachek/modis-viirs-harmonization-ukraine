@@ -36,7 +36,15 @@ def main():
     agg = agg.merge(cells, on="cell01", how="left")
     for c in ("daynight", "sensor_product", "satellite", "processing", "oblast_mode"):
         agg[c] = agg[c].astype("category")
-    agg.to_parquet(os.path.join(PROC, "agg_cell_day.parquet"), index=False, compression="zstd")
+    # compact dtypes (sensor_product is implied by satellite)
+    agg = agg.drop(columns=["sensor_product"])
+    agg["cell01"] = agg["cell01"].astype("int32")
+    for c in ("n", "n_crop", "n_grass", "n_tree", "n_wetland"):
+        agg[c] = agg[c].astype("int16")
+    agg["frp_sum"] = agg["frp_sum"].round(1).astype("float32")
+    agg["frp_max"] = agg["frp_max"].round(1).astype("float32")
+    agg = agg.sort_values(["cell01", "date"])
+    agg.to_parquet(os.path.join(PROC, "agg_cell_day.parquet"), index=False, compression="zstd", compression_level=19)
 
     # Raw annual counts per satellite (standard + nrt, Ukraine, vegetation, conf-filtered)
     ukr["year"] = ukr["date"].dt.year

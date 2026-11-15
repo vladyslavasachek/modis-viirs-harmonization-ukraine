@@ -137,7 +137,15 @@ PNG_CONFIG = {"toImageButtonOptions": {"format": "png", "scale": 2}, "displaylog
 
 @st.cache_data
 def load_detections() -> pd.DataFrame:
-    return pd.read_parquet(os.path.join(APP, "detections.parquet"))
+    """Decode the compact detection table (see src/build_app_data.py)."""
+    d = pd.read_parquet(os.path.join(APP, "detections.parquet"))
+    d["lat"] = (d["lat"] / 1e4).astype("float32")
+    d["lon"] = (d["lon"] / 1e4).astype("float32")
+    d["frp"] = (d["frp"] / 10).astype("float32")
+    d["datetime_utc"] = pd.to_datetime(d["datetime_utc"].astype("int64") * 60, unit="s")
+    d["cell01"] = (np.floor(d["lat"].astype(float) * 10).astype("int32") * 1000
+                   + np.floor(d["lon"].astype(float) * 10).astype("int32"))
+    return d
 
 
 def haversine_km(lat0, lon0, lat, lon):
@@ -196,3 +204,25 @@ def sen_mk(years: np.ndarray, values: np.ndarray) -> dict:
     tau, p = kendalltau(years, values)
     return dict(slope=s.slope, lo=s.low_slope, hi=s.high_slope, tau=tau, p=p,
                 intercept=s.intercept, rel=s.slope / np.median(values) * 100 if np.median(values) > 0 else np.nan)
+
+
+def trend_robustness(det: pd.DataFrame, yr_harm: pd.DataFrame) -> pd.DataFrame:
+    """Sen's slope + Mann-Kendall on harmonized vs raw single-sensor series (fixed periods, complete years).
+    Raw series are counts of one sensor only, so their *sign/relative* trend is comparable, not their level."""
+    d = det.assign(year=det["datetime_utc"].dt.year)
+    aqua = d[d["sensor"] == "MODIS Aqua"].groupby("year").size()
+    snpp = d[d["sensor"] == "VIIRS S-NPP"].groupby("year").size()
+    h = yr_harm.set_index("year")["point"]
+    rows = []
+    for label, ser, y0, y1 in (("Harmonized (S-NPP-equivalent)", h, 2001, 2025),
+                               ("Raw Aqua-MODIS only", aqua, 2003, 2025),
+                               ("Raw VIIRS S-NPP only", snpp, 2012, 2025),
+                               ("Harmonized, common period", h, 2012, 2025),
+                               ("Raw Aqua-MODIS only, common period", aqua, 2012, 2025)):
+        yrs = np.arange(y0, y1 + 1)
+        v = ser.reindex(yrs, fill_value=0).values.astype(float)
+        t = sen_mk(yrs, v)
+        rows.append({"series": label, "period": f"{y0}–{y1}", "Sen's slope / yr": t["slope"],
+                     "95% CI": f"{t['lo']:+,.0f} to {t['hi']:+,.0f}", "% of median / yr": t["rel"],
+                     "Mann–Kendall τ": t["tau"], "p": t["p"]})
+    return pd.DataFrame(rows)

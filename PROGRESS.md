@@ -75,3 +75,34 @@
   - calendar CSV and hot-spot CSV downloads; PNG via the plot camera icon.
 - Tested in the browser: preset, point + radius and drawn rectangle. No server errors.
 - Total `data/processed/` is 44 MB.
+
+## Checks before Stage 3 (18:50)
+- **Trend robustness** (`data/processed/trend_robustness_ukraine.csv`). Sen's slope + Mann–Kendall, Ukraine without conflict-affected oblasts:
+
+  | Series | Period | Trend | p |
+  |---|---|---|---|
+  | Harmonized | 2001–25 | −1,918/yr (−4.3%/yr) | 0.009 |
+  | Raw Aqua-only | 2003–25 | −280/yr (−3.5%/yr) | 0.07 |
+  | Raw S-NPP-only | 2012–25 | −3,611/yr (−11.3%/yr) | 0.02 |
+
+  - **All three agree in sign** (decline).
+  - All of Ukraine (incl. conflict oblasts): all negative, none significant (p 0.08–0.35).
+  - Shown on the Calendar page for any AOI. README must list all three.
+- **Month-to-date KPI:** confirmed the same 1–14 Nov window in each baseline year (independent recomputation, max diff 0). The panel states the current month is NRT (NOAA-20 calibrated).
+- **Size:** `data/processed/` went from 44 MB to **33 MB**. Detections are quantized (lat/lon 1e-4°, FRP 0.1 MW, minutes) from 29.5 to 19.9 MB; zstd level 19; compact aggregate dtypes.
+
+## Stage 3 — Calendar, anomalies, critical periods (done, 19:00)
+- `src/calendar_stats.py`: leave-one-year-out climatology (median, 10–90%), mid-rank percentile anomalies (weekly/monthly), critical periods, bimodal season split and onset/peak/end (10/50/90% cumulative).
+- **Deviation from the spec (documented in the app):** the critical-period threshold is the 75th percentile *pooled over all weeks* of the baseline years (without the evaluated year). A per-week threshold would be exceeded in ~25% of years by construction. 95% CI by bootstrap over years.
+- Ukraine (excl. domain):
+  - critical weeks 12–15 (late Mar–mid Apr) and 29–34 + 38 (late Jul–Sep);
+  - bimodal, split at week 23;
+  - median spring onset/peak/end at day 74 / 88 / 116;
+  - median summer–autumn onset/peak/end at day 200 / 228 / 277.
+- Kyiv airshed: April 2020 = **100th percentile**; critical weeks 12–16 and 31–38.
+- App page "Anomalies & critical periods":
+  - climatology vs selected year;
+  - RdBu percentile heatmap (centred at 50);
+  - critical-weeks bars with CI;
+  - season timing;
+  - CSV downloads.

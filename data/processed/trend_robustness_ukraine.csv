@@ -1,0 +1,11 @@
+series,period,Sen's slope / yr,95% CI,% of median / yr,Mann–Kendall τ,p,domain
+Harmonized (S-NPP-equivalent),2001–2025,-1918.498448058334,"-3,336 to -622",-4.25420587419043,-0.37333333333333324,0.008520236731434604,"Ukraine without conflict-affected oblasts, all years"
+Raw Aqua-MODIS only,2003–2025,-279.7142857142857,-560 to +81,-3.5357639453202596,-0.2727272727272727,0.07219491360513254,"Ukraine without conflict-affected oblasts, all years"
+Raw VIIRS S-NPP only,2012–2025,-3610.714285714286,"-7,018 to -515",-11.274497777440745,-0.4725274725274726,0.01927860024400203,"Ukraine without conflict-affected oblasts, all years"
+"Harmonized, common period",2012–2025,-3790.497780613594,"-7,529 to -664",-11.359439228644522,-0.4725274725274726,0.01927860024400203,"Ukraine without conflict-affected oblasts, all years"
+"Raw Aqua-MODIS only, common period",2012–2025,-748.0,"-1,606 to +5",-10.714029936260117,-0.38461538461538464,0.061658178659046714,"Ukraine without conflict-affected oblasts, all years"
+Harmonized (S-NPP-equivalent),2001–2025,-2044.235624603551,"-4,162 to +202",-2.7964821954024464,-0.25333333333333324,0.07972026188701116,"All of Ukraine, incl. conflict-affected oblasts"
+Raw Aqua-MODIS only,2003–2025,-225.58823529411765,-640 to +222,-1.928928903754747,-0.14624505928853754,0.34570998519847684,"All of Ukraine, incl. conflict-affected oblasts"
+Raw VIIRS S-NPP only,2012–2025,-2972.0,"-10,140 to +2,147",-4.691545115867904,-0.2527472527472528,0.23311184869840623,"All of Ukraine, incl. conflict-affected oblasts"
+"Harmonized, common period",2012–2025,-2184.586658341441,"-9,562 to +2,162",-3.4221498668727075,-0.16483516483516486,0.4505630133066889,"All of Ukraine, incl. conflict-affected oblasts"
+"Raw Aqua-MODIS only, common period",2012–2025,-576.6666666666666,"-1,734 to +348",-5.359604690428613,-0.23076923076923078,0.2791797743335442,"All of Ukraine, incl. conflict-affected oblasts"

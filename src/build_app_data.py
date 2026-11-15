@@ -56,7 +56,8 @@ def main():
         w[c] = w[c].astype("float32")
     w = w.rename(columns={"m_all": "modis_all", "m_excl": "modis_excl"})
     w[["year", "woy", "month", "source"]] = w[["year", "woy", "month", "source"]].astype("int16")
-    w.to_parquet(os.path.join(OUT, "weekly_cells.parquet"), index=False, compression="zstd")
+    w.to_parquet(os.path.join(OUT, "weekly_cells.parquet"), index=False, compression="zstd",
+                 compression_level=19)
 
     # cells + AOI membership (by cell centroid)
     cells = pd.DataFrame({"cell01": np.unique(w["cell01"])})
@@ -111,8 +112,14 @@ def main():
         "cell01": dd["cell01"].astype("int32"),
         "weight": wgt.astype("float32"),
     }).sort_values(["cell01", "datetime_utc"])
-    det.to_parquet(os.path.join(OUT, "detections.parquet"), index=False, compression="zstd",
-                   compression_level=9, row_group_size=200_000)
+    # compact storage: lat/lon in 1e-4 deg (~11 m), FRP in 0.1 MW, time in minutes since epoch (decoded in app/lib.py)
+    enc = det.drop(columns=["cell01"]).copy()
+    enc["lat"] = np.round(det["lat"].astype(float) * 1e4).astype("int32")
+    enc["lon"] = np.round(det["lon"].astype(float) * 1e4).astype("int32")
+    enc["frp"] = np.round(det["frp"].astype(float) * 10).astype("int32")
+    enc["datetime_utc"] = (det["datetime_utc"].astype("int64") // 60).astype("int32")
+    enc.to_parquet(os.path.join(OUT, "detections.parquet"), index=False, compression="zstd",
+                   compression_level=19, row_group_size=1_000_000)
     print("detections", len(det), "MB", round(os.path.getsize(os.path.join(OUT, "detections.parquet")) / 1e6, 1),
           "weight-sum vs weekly h_all:", round(float(det["weight"].sum()), 1), round(float(w["h_all"].sum()), 1))
     # consistency check vs the 0.5-deg Stage 2 table
